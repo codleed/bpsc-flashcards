@@ -38,15 +38,36 @@ const deckMeta = {
 const fileRe = /^(\d+)_IT_Teacher_Interview_QA\.md$/;
 const translationsDir = join(repoRoot, "translations", "ur");
 
-// Optional Urdu translations per deck: translations/ur/NN.json = {"cards":[{"n":1,"q":"...","a":"..."}]}
-function loadUrdu(id) {
-  const f = join(translationsDir, `${String(id).padStart(2, "0")}.json`);
-  if (!existsSync(f)) return new Map();
-  const map = new Map();
-  for (const c of JSON.parse(readFileSync(f, "utf8")).cards ?? []) {
-    if (c.n && c.q && c.a) map.set(Number(c.n), { q: c.q, a: c.a });
+// Optional Urdu translations: any .json in translations/ur/ shaped like
+// {"decks":[{"id":N,"title":"…","desc":"…","questions":[{"n":1,"q":"…","a":"…"}]}]}
+// (deck-export format; files may group several decks).
+function loadUrduAll() {
+  const byDeck = new Map(); // id -> {title, desc, cards: Map(n -> {q, a})}
+  if (!existsSync(translationsDir)) return byDeck;
+  for (const f of readdirSync(translationsDir)) {
+    if (!f.endsWith(".json")) continue;
+    let j;
+    try {
+      j = JSON.parse(readFileSync(join(translationsDir, f), "utf8"));
+    } catch (e) {
+      console.warn(`urdu: ${f} is not valid JSON (${e.message}) — skipped`);
+      continue;
+    }
+    for (const d of j.decks ?? []) {
+      if (!d || !d.id) continue;
+      let entry = byDeck.get(d.id);
+      if (!entry) {
+        entry = { title: null, desc: null, cards: new Map() };
+        byDeck.set(d.id, entry);
+      }
+      if (d.title) entry.title = d.title;
+      if (d.desc) entry.desc = d.desc;
+      for (const c of d.questions ?? []) {
+        if (c.n && c.q && c.a) entry.cards.set(Number(c.n), { q: c.q, a: c.a });
+      }
+    }
   }
-  return map;
+  return byDeck;
 }
 
 function clean(s) {
@@ -77,6 +98,8 @@ if (files.length === 0) {
 const decks = [];
 let total = 0;
 
+const urduAll = loadUrduAll();
+
 for (const { id, f } of files) {
   const lines = readFileSync(join(repoRoot, f), "utf8").split(/\r?\n/);
   const questions = [];
@@ -101,7 +124,15 @@ for (const { id, f } of files) {
   if (questions.length !== 50) {
     console.warn(`deck ${id}: ${questions.length} cards (expected the usual 50)`);
   }
-  const urdu = loadUrdu(id);
+  const urEntry = urduAll.get(id);
+  const urdu = urEntry?.cards ?? new Map();
+  const titleUr = urEntry?.title ?? meta.titleUr ?? null;
+  const descUr = urEntry?.desc ?? meta.descUr ?? null;
+  if (urdu.size === 0) {
+    console.warn(`deck ${id}: no Urdu translation — cards will show English.`);
+  } else if (urdu.size !== questions.length) {
+    console.warn(`deck ${id}: Urdu covers ${urdu.size}/${questions.length} cards — the rest fall back to English.`);
+  }
   const questionsUr = questions.map((qn) => {
     const t = urdu.get(qn.n);
     if (!t) return qn;
@@ -111,7 +142,7 @@ for (const { id, f } of files) {
     console.log(`deck ${id}: urdu ${urdu.size}/${questions.length}`);
   }
   total += questions.length;
-  decks.push({ id, ...meta, questions: questionsUr });
+  decks.push({ id, title: meta.title, desc: meta.desc, tag: meta.tag, titleUr, descUr, tagUr: meta.tagUr ?? null, questions: questionsUr });
 }
 
 const json = JSON.stringify({ generated: "from md", decks });
