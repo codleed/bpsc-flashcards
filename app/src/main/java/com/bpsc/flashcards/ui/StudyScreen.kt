@@ -45,6 +45,7 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import com.bpsc.flashcards.R
+import com.bpsc.flashcards.data.AppLang
 import com.bpsc.flashcards.data.Card
 import com.bpsc.flashcards.data.CardStatus
 import com.bpsc.flashcards.data.Deck
@@ -56,11 +57,13 @@ import kotlin.random.Random
 fun StudyScreen(
     deck: Deck,
     states: Map<String, CardStatus>,
+    lang: AppLang,
     reduceMotion: Boolean,
     onMark: (String, CardStatus) -> Unit,
     onResetDeck: () -> Unit,
     onExit: () -> Unit,
 ) {
+    val strings = LocalAppStrings.current
     var session by remember(deck.id) { mutableIntStateOf(0) }
     var round by remember(deck.id, session) { mutableIntStateOf(1) }
     var seed by remember(deck.id, session, round) { mutableStateOf(0L) }
@@ -96,12 +99,12 @@ fun StudyScreen(
                 IconButton(onClick = onExit) {
                     Icon(
                         painter = painterResource(R.drawable.ic_arrow_back),
-                        contentDescription = "Back to decks",
+                        contentDescription = strings.backToDecks,
                         tint = MaterialTheme.colorScheme.onBackground,
                     )
                 }
                 Text(
-                    deck.title,
+                    deck.title(lang),
                     style = InkType.counter,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                     maxLines = 1,
@@ -110,7 +113,7 @@ fun StudyScreen(
                 )
                 if (!sessionDone) {
                     Text(
-                        "${index + 1} / ${queue.size}",
+                        strings.counter(index + 1, queue.size),
                         style = InkType.counter,
                         color = MaterialTheme.colorScheme.onSurface,
                     )
@@ -138,8 +141,10 @@ fun StudyScreen(
             if (sessionDone) {
                 SessionSummary(
                     deck = deck,
+                    lang = lang,
                     known = knownInDeck,
                     again = againInDeck,
+                    strings = strings,
                     onRevisit = { round++ },
                     onResetAndPractice = {
                         onResetDeck()
@@ -156,14 +161,17 @@ fun StudyScreen(
                 ) {
                     FlipCard(
                         card = queue[index],
-                        deckTag = deck.tag,
+                        lang = lang,
+                        deckTag = deck.tag(lang),
                         flipped = flipped,
                         reduceMotion = reduceMotion,
+                        strings = strings,
                         onFlip = { flipped = !flipped },
                     )
                 }
                 ActionBar(
                     flipped = flipped,
+                    strings = strings,
                     onAgain = {
                         pending = CardStatus.AGAIN
                         flipped = false
@@ -194,9 +202,11 @@ private fun buildQueue(
 @Composable
 private fun FlipCard(
     card: Card,
+    lang: AppLang,
     deckTag: String,
     flipped: Boolean,
     reduceMotion: Boolean,
+    strings: AppStrings,
     onFlip: () -> Unit,
 ) {
     val rotation by animateFloatAsState(
@@ -205,6 +215,7 @@ private fun FlipCard(
         label = "flip",
     )
     val density = LocalDensity.current.density
+    val urdu = lang == AppLang.UR
     Box(
         Modifier
             .fillMaxSize()
@@ -226,20 +237,20 @@ private fun FlipCard(
                     verticalArrangement = Arrangement.Center,
                 ) {
                     Text(
-                        "QUESTION",
+                        strings.question,
                         style = InkType.eyebrow,
                         color = MaterialTheme.colorScheme.outline,
                     )
                     Spacer(Modifier.height(16.dp))
                     Text(
-                        card.q,
-                        style = InkType.question,
+                        card.q(lang),
+                        style = if (urdu) InkType.questionUrdu else InkType.question,
                         color = MaterialTheme.colorScheme.onSurface,
                         textAlign = TextAlign.Center,
                     )
                     Spacer(Modifier.height(28.dp))
                     Text(
-                        "TAP TO REVEAL",
+                        strings.tapToReveal,
                         style = InkType.eyebrow,
                         color = MaterialTheme.colorScheme.outline,
                     )
@@ -254,14 +265,14 @@ private fun FlipCard(
                         verticalArrangement = Arrangement.Center,
                     ) {
                         Text(
-                            "ANSWER · $deckTag",
+                            strings.answer(deckTag),
                             style = InkType.eyebrow,
                             color = MaterialTheme.colorScheme.primary,
                         )
                         Spacer(Modifier.height(16.dp))
                         Text(
-                            card.a,
-                            style = InkType.answer,
+                            card.a(lang),
+                            style = if (urdu) InkType.answerUrdu else InkType.answer,
                             color = MaterialTheme.colorScheme.onSurface,
                         )
                     }
@@ -288,6 +299,7 @@ private fun CardFace(content: @Composable () -> Unit) {
 @Composable
 private fun ActionBar(
     flipped: Boolean,
+    strings: AppStrings,
     onAgain: () -> Unit,
     onGotIt: () -> Unit,
 ) {
@@ -302,7 +314,7 @@ private fun ActionBar(
                 colors = ButtonDefaults.outlinedButtonColors(contentColor = warmAccent()),
                 modifier = Modifier.weight(1f).height(52.dp),
             ) {
-                Text("AGAIN", style = InkType.eyebrow)
+                Text(strings.again, style = InkType.eyebrow)
             }
             Button(
                 onClick = onGotIt,
@@ -313,7 +325,7 @@ private fun ActionBar(
                 ),
                 modifier = Modifier.weight(1f).height(52.dp),
             ) {
-                Text("GOT IT", style = InkType.eyebrow)
+                Text(strings.gotIt, style = InkType.eyebrow)
             }
         }
     } else {
@@ -322,7 +334,7 @@ private fun ActionBar(
             contentAlignment = Alignment.Center,
         ) {
             Text(
-                "Tap the card to reveal the answer",
+                strings.tapHint,
                 style = InkType.eyebrow,
                 color = MaterialTheme.colorScheme.outline,
             )
@@ -333,8 +345,10 @@ private fun ActionBar(
 @Composable
 private fun SessionSummary(
     deck: Deck,
+    lang: AppLang,
     known: Int,
     again: Int,
+    strings: AppStrings,
     onRevisit: () -> Unit,
     onResetAndPractice: () -> Unit,
     onExit: () -> Unit,
@@ -346,39 +360,39 @@ private fun SessionSummary(
         horizontalAlignment = Alignment.CenterHorizontally,
     ) {
         Text(
-            if (complete) "SESSION COMPLETE" else "ROUND COMPLETE",
+            if (complete) strings.sessionComplete else strings.roundComplete,
             style = InkType.eyebrow,
             color = MaterialTheme.colorScheme.outline,
         )
         Spacer(Modifier.height(12.dp))
         Text(
-            if (complete) "All ${deck.cards.size} cards marked known"
-            else "$again cards to revisit",
+            if (complete) strings.allKnown(deck.cards.size)
+            else strings.revisitTitle(again),
             style = InkType.appTitle,
             color = MaterialTheme.colorScheme.onSurface,
             textAlign = TextAlign.Center,
         )
         Spacer(Modifier.height(12.dp))
         Text(
-            if (complete) "${deck.title} is mastered. Come back in a few days to keep it fresh."
-            else "Review the ones that tripped you up, then finish the deck.",
+            if (complete) strings.deckMastered(deck.title(lang))
+            else strings.reviewAgainBody(deck.title(lang)),
             style = InkType.body,
             color = MaterialTheme.colorScheme.onSurfaceVariant,
             textAlign = TextAlign.Center,
         )
         Spacer(Modifier.height(28.dp))
         if (complete) {
-            PrimaryButton("BACK TO DECKS", onExit)
+            PrimaryButton(strings.backToDecksAction, onExit)
             Spacer(Modifier.height(12.dp))
-            SecondaryButton("RESET DECK & PRACTICE AGAIN", onResetAndPractice)
+            SecondaryButton(strings.resetAndPractice, onResetAndPractice)
         } else {
-            PrimaryButton("REVISIT $again CARDS", onRevisit)
+            PrimaryButton(strings.revisitAgain(again), onRevisit)
             Spacer(Modifier.height(12.dp))
-            SecondaryButton("BACK TO DECKS", onExit)
+            SecondaryButton(strings.backToDecksAction, onExit)
         }
         Spacer(Modifier.height(12.dp))
         Text(
-            "$known of ${deck.cards.size} known in this deck",
+            strings.knownInDeck(known, deck.cards.size),
             style = InkType.eyebrow,
             color = MaterialTheme.colorScheme.outline,
         )

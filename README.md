@@ -9,6 +9,14 @@ A native Android app (Kotlin + Jetpack Compose, Material 3) for practicing the B
 - Mark **GOT IT** (mastered) or **AGAIN** (kept in the round). Progress persists on the device.
 - Light "ink & paper" and dark "night revision" themes.
 
+## Language and theme
+
+The deck list has two toggles: **English / اردو** and **light / dark**. Both persist on the device.
+
+- **Urdu cards:** questions and answers are rendered in Urdu (RTL, Nastaliq-friendly typography). Urdu content lives in `../translations/ur/NN.json` — one file per deck, `{"cards":[{"n":1,"q":"…","a":"…"}]}`. Cards without a translation fall back to English, and the header shows how many decks have Urdu coverage.
+- Regenerating merges those translations into `questions.json` automatically; the header count tells you which decks are still to do.
+- The same `questions.json` (Urdu fields included) is what the live-update fetch delivers.
+
 ## Live card updates
 
 Cards are content, not code. On every launch the app:
@@ -36,5 +44,7 @@ The generator parses numbered markdown files (`NN_IT_Teacher_Interview_QA.md`) �
 node tools/generate_cards.mjs                     # reads ../.. by default
 BPSC_DIR=/path/to/markdown/folder node tools/generate_cards.mjs   # or point it anywhere
 ```
+
+Urdu translations are picked up from `<BPSC_DIR>/translations/ur/NN.json`.
 
 A new deck without a `deckMeta` entry in `tools/generate_cards.mjs` gets a placeholder title and a warning — add one line there to name it.

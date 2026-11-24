@@ -15,11 +15,43 @@ import java.net.URL
 /** Card deck is content, not code: fetched from the deployed cards file, cached locally. */
 const val REMOTE_CARDS_URL: String = "https://bpsc-qbank.netlify.app/questions.json"
 
-data class Card(val deckId: Int, val n: Int, val q: String, val a: String) {
+data class Card(
+    val deckId: Int,
+    val n: Int,
+    val q: String,
+    val a: String,
+    val qUr: String? = null,
+    val aUr: String? = null,
+) {
     val id: String get() = "d$deckId-n$n"
+
+    val hasUrdu: Boolean get() = qUr != null && aUr != null
+
+    fun q(lang: AppLang): String = if (lang == AppLang.UR) qUr ?: q else q
+
+    fun a(lang: AppLang): String = if (lang == AppLang.UR) aUr ?: a else a
 }
 
-data class Deck(val id: Int, val title: String, val desc: String, val tag: String, val cards: List<Card>)
+data class Deck(
+    val id: Int,
+    val title: String,
+    val desc: String,
+    val tag: String,
+    val cards: List<Card>,
+    val titleUr: String? = null,
+    val descUr: String? = null,
+    val tagUr: String? = null,
+) {
+    val hasUrduMeta: Boolean get() = titleUr != null
+
+    val urduCards: Int get() = cards.count { it.hasUrdu }
+
+    fun title(lang: AppLang): String = if (lang == AppLang.UR) titleUr ?: title else title
+
+    fun desc(lang: AppLang): String = if (lang == AppLang.UR) descUr ?: desc else desc
+
+    fun tag(lang: AppLang): String = if (lang == AppLang.UR) tagUr ?: tag else tag
+}
 
 sealed interface CardsStatus {
     data object Idle : CardsStatus
@@ -103,8 +135,18 @@ class Bank(context: Context) {
                 tag = d.getString("tag"),
                 cards = List(qs.length()) { j ->
                     val q = qs.getJSONObject(j)
-                    Card(id, q.getInt("n"), q.getString("q"), q.getString("a"))
+                    Card(
+                        deckId = id,
+                        n = q.getInt("n"),
+                        q = q.getString("q"),
+                        a = q.getString("a"),
+                        qUr = q.optString("q_ur").ifBlank { null },
+                        aUr = q.optString("a_ur").ifBlank { null },
+                    )
                 },
+                titleUr = d.optString("title_ur").ifBlank { null },
+                descUr = d.optString("desc_ur").ifBlank { null },
+                tagUr = d.optString("tag_ur").ifBlank { null },
             )
         }
         val total = parsed.sumOf { it.cards.size }
@@ -114,6 +156,9 @@ class Bank(context: Context) {
             "All $total cards, shuffled",
             "ALL",
             parsed.flatMap { it.cards },
+            titleUr = "آمیкс مشق",
+            descUr = "تمام $total کارڈز، بے ترتیب",
+            tagUr = "سب",
         )
         return listOf(mixed) + parsed
     }

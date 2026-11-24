@@ -87,6 +87,11 @@ object InkType {
         fontSize = 14.sp,
         lineHeight = 20.sp,
     )
+
+    // Urdu script needs more leading to stay readable.
+    val questionUrdu = question.copy(lineHeight = 40.sp)
+    val answerUrdu = answer.copy(lineHeight = 36.sp)
+    val deckTitleUrdu = deckTitle.copy(lineHeight = 32.sp)
 }
 
 val BpscShapes = Shapes(
