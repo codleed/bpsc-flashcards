@@ -92,15 +92,6 @@ fun DecksScreen(
                         onToggleLang = onToggleLang,
                         onToggleTheme = onToggleTheme,
                     )
-                    if (lang == AppLang.UR) {
-                        Spacer(Modifier.height(10.dp))
-                        val urduDecks = decks.count { it.urduCards == it.cards.size && it.hasUrduMeta }
-                        Text(
-                            strings.urduCoverage(urduDecks, decks.size),
-                            style = InkType.eyebrow,
-                            color = warmAccent(),
-                        )
-                    }
 
                     Spacer(Modifier.height(26.dp))
                     MasteryRow(
@@ -115,7 +106,6 @@ fun DecksScreen(
             items(decks, key = { it.id }) { deck ->
                 DeckRow(
                     deck = deck,
-                    lang = lang,
                     strings = strings,
                     known = deck.cards.count { states[it.id] == CardStatus.KNOWN },
                     again = deck.cards.count { states[it.id] == CardStatus.AGAIN },
@@ -284,7 +274,6 @@ private fun MasteryRow(known: Int, total: Int, again: Int, strings: AppStrings) 
 @Composable
 private fun DeckRow(
     deck: Deck,
-    lang: AppLang,
     strings: AppStrings,
     known: Int,
     again: Int,
@@ -303,16 +292,16 @@ private fun DeckRow(
         verticalAlignment = Alignment.CenterVertically,
     ) {
         Column(Modifier.weight(1f)) {
-            Text(deck.tag(lang), style = InkType.eyebrow, color = scheme.primary)
+            Text(deck.tag, style = InkType.eyebrow, color = scheme.primary)
             Spacer(Modifier.height(4.dp))
             Text(
-                deck.title(lang),
-                style = if (lang == AppLang.UR) InkType.deckTitleUrdu else InkType.deckTitle,
+                deck.title,
+                style = InkType.deckTitle,
                 color = scheme.onSurface,
             )
             Spacer(Modifier.height(2.dp))
             Text(
-                deck.desc(lang),
+                deck.desc,
                 style = InkType.body,
                 color = scheme.onSurfaceVariant,
                 maxLines = 1,
@@ -326,10 +315,6 @@ private fun DeckRow(
                 style = InkType.counter,
                 color = if (known == total) scheme.primary else scheme.onSurfaceVariant,
             )
-            if (lang == AppLang.UR && deck.urduCards == 0) {
-                Spacer(Modifier.height(4.dp))
-                Text("EN", style = InkType.eyebrow, color = warmAccent())
-            }
             Spacer(Modifier.height(6.dp))
             Box(
                 Modifier

@@ -10,10 +10,15 @@ import androidx.compose.material3.lightColorScheme
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.TextStyle
+import androidx.compose.ui.text.font.Font
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import com.bpsc.flashcards.R
+
+/** Jameel Noori Nastaleeq — the proper Nastaliq face for Urdu (subset build, bundled). */
+val NooriNastaliq = FontFamily(Font(R.font.jameel_noori))
 
 // Ink & paper: warm paper, near-black ink, one ballpoint blue. No defaults, no purple.
 val Ballpen = Color(0xFF2B4ECF)
@@ -88,10 +93,9 @@ object InkType {
         lineHeight = 20.sp,
     )
 
-    // Urdu script needs more leading to stay readable.
-    val questionUrdu = question.copy(lineHeight = 40.sp)
-    val answerUrdu = answer.copy(lineHeight = 36.sp)
-    val deckTitleUrdu = deckTitle.copy(lineHeight = 32.sp)
+    // Card text in Urdu — Jameel Noori Nastaleeq. Nastaliq needs deep leading.
+    val questionUrdu = question.copy(fontFamily = NooriNastaliq, fontSize = 23.sp, lineHeight = 48.sp)
+    val answerUrdu = answer.copy(fontFamily = NooriNastaliq, fontSize = 20.sp, lineHeight = 42.sp)
 }
 
 val BpscShapes = Shapes(

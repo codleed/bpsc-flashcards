@@ -104,7 +104,7 @@ fun StudyScreen(
                     )
                 }
                 Text(
-                    deck.title(lang),
+                    deck.title,
                     style = InkType.counter,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                     maxLines = 1,
@@ -274,6 +274,7 @@ private fun FlipCard(
                             card.a(lang),
                             style = if (urdu) InkType.answerUrdu else InkType.answer,
                             color = MaterialTheme.colorScheme.onSurface,
+                            textAlign = if (urdu) TextAlign.Right else TextAlign.Start,
                         )
                     }
                 }

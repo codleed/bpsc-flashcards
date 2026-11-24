@@ -10,7 +10,6 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
@@ -19,17 +18,13 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.platform.LocalLayoutDirection
-import androidx.compose.ui.unit.LayoutDirection
 import com.bpsc.flashcards.data.AppLang
 import com.bpsc.flashcards.data.AppPrefs
 import com.bpsc.flashcards.data.Bank
 import com.bpsc.flashcards.data.ProgressStore
 import com.bpsc.flashcards.data.ThemeMode
 import com.bpsc.flashcards.ui.DecksScreen
-import com.bpsc.flashcards.ui.LocalAppStrings
 import com.bpsc.flashcards.ui.StudyScreen
-import com.bpsc.flashcards.ui.stringsFor
 import com.bpsc.flashcards.ui.theme.BpscFlashTheme
 import kotlinx.coroutines.launch
 
@@ -51,21 +46,17 @@ class MainActivity : ComponentActivity() {
         setContent {
             val lang by prefs.lang.collectAsState()
             val theme by prefs.theme.collectAsState()
-            CompositionLocalProvider(
-                LocalAppStrings provides stringsFor(lang),
-                LocalLayoutDirection provides if (lang == AppLang.UR) LayoutDirection.Rtl else LayoutDirection.Ltr,
-            ) {
-                BpscFlashTheme(darkTheme = theme == ThemeMode.DARK) {
-                    Surface(color = MaterialTheme.colorScheme.background, modifier = Modifier.fillMaxSize()) {
-                        AppRoot(
-                            bank = bank,
-                            store = store,
-                            prefs = prefs,
-                            lang = lang,
-                            theme = theme,
-                            reduceMotion = animationsOff,
-                        )
-                    }
+            // App chrome stays English in every language; `lang` only flips card text.
+            BpscFlashTheme(darkTheme = theme == ThemeMode.DARK) {
+                Surface(color = MaterialTheme.colorScheme.background, modifier = Modifier.fillMaxSize()) {
+                    AppRoot(
+                        bank = bank,
+                        store = store,
+                        prefs = prefs,
+                        lang = lang,
+                        theme = theme,
+                        reduceMotion = animationsOff,
+                    )
                 }
             }
         }

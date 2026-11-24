@@ -1,9 +1,11 @@
 package com.bpsc.flashcards.ui
 
 import androidx.compose.runtime.staticCompositionLocalOf
-import com.bpsc.flashcards.data.AppLang
 
-/** UI chrome copy for the two in-app languages (manual toggle, not a system-locale switch). */
+/**
+ * App chrome copy — always English. The Urdu language toggle only flips the card
+ * question/answer text, not the screen text.
+ */
 data class AppStrings(
     val appEyebrow: String,
     val appTitle: String,
@@ -23,7 +25,6 @@ data class AppStrings(
     val themeLabel: String,
     val light: String,
     val dark: String,
-    val urduCoverage: (done: Int, totalDecks: Int) -> String,
     val backToDecks: String,
     val counter: (index: Int, total: Int) -> String,
     val question: String,
@@ -44,7 +45,7 @@ data class AppStrings(
     val knownInDeck: (known: Int, total: Int) -> String,
 )
 
-val StringsEn = AppStrings(
+val AppStringsEn = AppStrings(
     appEyebrow = "REVISION · BPSC INTERVIEW",
     appTitle = "IT Teacher Interview",
     appIntro = { total -> "$total questions answered in short speakable lines, exactly as you wrote them. Tap a card to flip it." },
@@ -59,11 +60,10 @@ val StringsEn = AppStrings(
     footerNote = "Marking AGAIN keeps a card in the round; marking GOT IT masters it. Progress is saved on this device.",
     languageLabel = "LANGUAGE",
     english = "ENGLISH",
-    urdu = "URDU",
+    urdu = "اردو",
     themeLabel = "THEME",
     light = "LIGHT",
     dark = "DARK",
-    urduCoverage = { done, totalDecks -> "Urdu translations available for $done of $totalDecks decks — other cards stay in English." },
     backToDecks = "Back to decks",
     counter = { index, total -> "$index / $total" },
     question = "QUESTION",
@@ -84,46 +84,4 @@ val StringsEn = AppStrings(
     knownInDeck = { known, total -> "$known of $total known in this deck" },
 )
 
-val StringsUr = AppStrings(
-    appEyebrow = "نظرثانی · بی پی ایس سی انٹرویو",
-    appTitle = "آئی ٹی ٹیچر انٹرویو",
-    appIntro = { total -> "$total سوالات، مختصر اور بولنے کے قابل جوابات کے ساتھ — کارڈ پر ٹیپ کریں۔" },
-    mastered = "یاد شدہ",
-    masteredOf = { known, total -> "$known / $total" },
-    againBadge = { count -> "$count دوبارہ" },
-    cardsUpToDate = { total -> "کارڈز موجود ہیں · $total سوالات" },
-    cardsUpdated = { total -> "کارڈز اپ ڈیٹ ہو گئے · $total سوالات" },
-    checking = "کارڈز کی اپ ڈیٹ چیک ہو رہی ہے…",
-    offlineCopy = "آف لائن کاپی · دوبارہ کوشش کریں",
-    loadedLocally = "کارڈز مقامی طور پر لوڈ ہیں",
-    footerNote = "دوبارہ پر نشان لگانے سے کارڈ راؤنڈ میں رہتا ہے؛ یاد ہے پر نشان لگانے سے یہ یاد ہو جاتا ہے۔ پیش رفت اسی فون پر محفوظ ہے۔",
-    languageLabel = "زبان",
-    english = "ENGLISH",
-    urdu = "اردو",
-    themeLabel = "تھیم",
-    light = "روشن",
-    dark = "تاریک",
-    urduCoverage = { done, totalDecks -> "اردو ترجمہ $done میں سے $totalDecks ڈیکس کے لیے موجود ہے — باقی کارڈ انگریزی میں رہیں گے۔" },
-    backToDecks = "ڈیکز پر واپس",
-    counter = { index, total -> "$index / $total" },
-    question = "سوال",
-    answer = { tag -> "جواب · $tag" },
-    tapToReveal = "جواب دیکھنے کے لیے ٹیپ کریں",
-    tapHint = "جواب دیکھنے کے لیے کارڈ پر ٹیپ کریں",
-    again = "دوبارہ",
-    gotIt = "یاد ہے",
-    sessionComplete = "سیشن مکمل",
-    roundComplete = "راؤنڈ مکمل",
-    allKnown = { total -> "تمام $total کارڈ یاد ہو گئے" },
-    deckMastered = { title -> "$title مکمل یاد ہو چکا۔ کچھ دن بعد دوبارہ دیکھیں۔" },
-    revisitAgain = { count -> "$count کارڈز دوبارہ دیکھیں" },
-    revisitTitle = { count -> "$count کارڈز دوبارہ دیکھنے ہیں" },
-    reviewAgainBody = { title -> "جن کارڈز نے مشکل ہوئے انہیں دوبارہ دیکھیں، پھر $title مکمل کریں۔" },
-    backToDecksAction = "ڈیکز پر واپس",
-    resetAndPractice = "ڈیک ری سیٹ اور دوبارہ مشق",
-    knownInDeck = { known, total -> "اس ڈیک میں $known از $total کارڈ یاد ہیں" },
-)
-
-val LocalAppStrings = staticCompositionLocalOf { StringsEn }
-
-fun stringsFor(lang: AppLang): AppStrings = if (lang == AppLang.UR) StringsUr else StringsEn
+val LocalAppStrings = staticCompositionLocalOf { AppStringsEn }
