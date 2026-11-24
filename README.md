@@ -45,6 +45,6 @@ node tools/generate_cards.mjs                     # reads ../.. by default
 BPSC_DIR=/path/to/markdown/folder node tools/generate_cards.mjs   # or point it anywhere
 ```
 
-Urdu translations are picked up from `<BPSC_DIR>/translations/ur/NN.json`.
+Urdu translations are picked up from `<BPSC_DIR>/translations/ur/*.json` (deck-export format).
 
 A new deck without a `deckMeta` entry in `tools/generate_cards.mjs` gets a placeholder title and a warning — add one line there to name it.
