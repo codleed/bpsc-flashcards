@@ -13,8 +13,9 @@ A native Android app (Kotlin + Jetpack Compose, Material 3) for practicing the B
 
 The deck list has two toggles: **English / اردو** and **light / dark**. Both persist on the device.
 
-- **Urdu cards:** questions and answers are rendered in Urdu (RTL, Nastaliq-friendly typography). Urdu content lives in `../translations/ur/NN.json` — one file per deck, `{"cards":[{"n":1,"q":"…","a":"…"}]}`. Cards without a translation fall back to English, and the header shows how many decks have Urdu coverage.
-- Regenerating merges those translations into `questions.json` automatically; the header count tells you which decks are still to do.
+- **Urdu affects card text only** — with اردو selected, each card's question and answer render in Urdu (right-aligned, in the bundled **Jameel Noori Nastaleeq** font). The screen text — titles, labels, buttons — stays English.
+- Urdu content lives in `../translations/ur/*.json` (deck-export format: `{"decks":[{"id":N,"questions":[{"n":1,"q":"…","a":"…"}]}]}`). Cards without a translation fall back to English.
+- Regenerating merges those translations into `questions.json` as `q_ur`/`a_ur` next to the English text.
 - The same `questions.json` (Urdu fields included) is what the live-update fetch delivers.
 
 ## Live card updates

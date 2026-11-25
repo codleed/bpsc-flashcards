@@ -18,6 +18,8 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
@@ -62,15 +64,23 @@ fun StudyScreen(
     onMark: (String, CardStatus) -> Unit,
     onResetDeck: () -> Unit,
     onExit: () -> Unit,
+    startCardId: String? = null,
 ) {
     val strings = LocalAppStrings.current
     var session by remember(deck.id) { mutableIntStateOf(0) }
     var round by remember(deck.id, session) { mutableIntStateOf(1) }
     var seed by remember(deck.id, session, round) { mutableStateOf(0L) }
-    val queue: List<Card> = remember(deck.id, session, round, seed) {
-        buildQueue(deck, states, onlyAgain = round > 1, rnd = Random(if (seed == 0L) System.nanoTime() else seed))
+    // Opened from search: browse the deck in order, starting at the matched card.
+    val browse = startCardId != null && session == 0
+    val queue: List<Card> = remember(deck.id, session, round, seed, startCardId) {
+        if (browse) deck.cards
+        else buildQueue(deck, states, onlyAgain = round > 1, rnd = Random(if (seed == 0L) System.nanoTime() else seed))
     }
-    var index by remember(deck.id, session, round, seed) { mutableIntStateOf(0) }
+    var index by remember(deck.id, session, round, seed, startCardId) {
+        mutableIntStateOf(
+            if (browse) deck.cards.indexOfFirst { it.id == startCardId }.coerceAtLeast(0) else 0,
+        )
+    }
     var flipped by remember(deck.id, session, round, seed) { mutableStateOf(false) }
     var pending by remember(deck.id, session, round, seed) { mutableStateOf<CardStatus?>(null) }
 
@@ -117,6 +127,12 @@ fun StudyScreen(
                         style = InkType.counter,
                         color = MaterialTheme.colorScheme.onSurface,
                     )
+                } else if (browse) {
+                    Text(
+                        strings.cardBrowse,
+                        style = InkType.eyebrow,
+                        color = MaterialTheme.colorScheme.outline,
+                    )
                 }
             }
             Box(
@@ -144,12 +160,14 @@ fun StudyScreen(
                     lang = lang,
                     known = knownInDeck,
                     again = againInDeck,
+                    browse = browse,
                     strings = strings,
                     onRevisit = { round++ },
                     onResetAndPractice = {
                         onResetDeck()
                         session++
                     },
+                    onStartPractice = { session++ },
                     onExit = onExit,
                 )
             } else {
@@ -169,6 +187,23 @@ fun StudyScreen(
                         onFlip = { flipped = !flipped },
                     )
                 }
+                NavRow(
+                    index = index,
+                    total = queue.size,
+                    strings = strings,
+                    onPrev = {
+                        if (index > 0) {
+                            index--
+                            flipped = false
+                        }
+                    },
+                    onNext = {
+                        if (index < queue.size - 1) {
+                            index++
+                            flipped = false
+                        }
+                    },
+                )
                 ActionBar(
                     flipped = flipped,
                     strings = strings,
@@ -344,16 +379,99 @@ private fun ActionBar(
 }
 
 @Composable
+private fun NavRow(
+    index: Int,
+    total: Int,
+    strings: AppStrings,
+    onPrev: () -> Unit,
+    onNext: () -> Unit,
+) {
+    Row(
+        Modifier.fillMaxWidth().padding(horizontal = 20.dp, vertical = 4.dp),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        NavButton(
+            label = strings.prev,
+            icon = R.drawable.ic_chevron_left,
+            enabled = index > 0,
+            onClick = onPrev,
+        )
+        Text(
+            strings.counter(index + 1, total),
+            style = InkType.counter,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+            modifier = Modifier.weight(1f),
+            textAlign = TextAlign.Center,
+        )
+        NavButton(
+            label = strings.next,
+            icon = R.drawable.ic_chevron_right,
+            enabled = index < total - 1,
+            onClick = onNext,
+        )
+    }
+}
+
+@Composable
+private fun NavButton(label: String, icon: Int, enabled: Boolean, onClick: () -> Unit) {
+    val scheme = MaterialTheme.colorScheme
+    val color = if (enabled) scheme.onSurfaceVariant else scheme.outlineVariant
+    Row(
+        Modifier
+            .clip(RoundedCornerShape(8.dp))
+            .then(if (enabled) Modifier.clickable(onClick = onClick) else Modifier)
+            .padding(horizontal = 10.dp, vertical = 10.dp),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        Icon(
+            painter = painterResource(icon),
+            contentDescription = null,
+            tint = color,
+            modifier = Modifier.size(15.dp),
+        )
+        Spacer(Modifier.width(4.dp))
+        Text(label, style = InkType.eyebrow, color = color)
+    }
+}
+
+@Composable
 private fun SessionSummary(
     deck: Deck,
     lang: AppLang,
     known: Int,
     again: Int,
+    browse: Boolean,
     strings: AppStrings,
     onRevisit: () -> Unit,
     onResetAndPractice: () -> Unit,
+    onStartPractice: () -> Unit,
     onExit: () -> Unit,
 ) {
+    if (browse) {
+        Column(
+            Modifier.fillMaxSize().padding(horizontal = 28.dp, vertical = 32.dp),
+            verticalArrangement = Arrangement.Center,
+            horizontalAlignment = Alignment.CenterHorizontally,
+        ) {
+            Text(
+                strings.endOfDeckTitle,
+                style = InkType.eyebrow,
+                color = MaterialTheme.colorScheme.outline,
+            )
+            Spacer(Modifier.height(12.dp))
+            Text(
+                strings.endOfDeckBody,
+                style = InkType.body,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                textAlign = TextAlign.Center,
+            )
+            Spacer(Modifier.height(28.dp))
+            PrimaryButton(strings.startPractice, onStartPractice)
+            Spacer(Modifier.height(12.dp))
+            SecondaryButton(strings.backToDecksAction, onExit)
+        }
+        return
+    }
     val complete = again == 0
     Column(
         Modifier.fillMaxSize().padding(horizontal = 28.dp, vertical = 32.dp),

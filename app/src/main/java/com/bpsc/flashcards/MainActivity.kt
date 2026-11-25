@@ -63,6 +63,8 @@ class MainActivity : ComponentActivity() {
     }
 }
 
+data class StudyTarget(val deckId: Int, val cardId: String? = null)
+
 @Composable
 fun AppRoot(
     bank: Bank,
@@ -76,14 +78,14 @@ fun AppRoot(
     val states by store.states.collectAsState()
     val cardsStatus by bank.status.collectAsState()
     val scope = rememberCoroutineScope()
-    var deckId by remember { mutableStateOf<Int?>(null) }
+    var target by remember { mutableStateOf<StudyTarget?>(null) }
 
     // Pull the newest cards whenever the app comes to the deck list.
-    LaunchedEffect(deckId) {
-        if (deckId == null) scope.launch { bank.refresh() }
+    LaunchedEffect(target) {
+        if (target == null) scope.launch { bank.refresh() }
     }
 
-    val open = deckId
+    val open = target
     if (open == null) {
         DecksScreen(
             decks = decks,
@@ -94,11 +96,12 @@ fun AppRoot(
             onToggleLang = { prefs.toggleLang() },
             onToggleTheme = { prefs.toggleTheme() },
             onRefresh = { scope.launch { bank.refresh() } },
-            onOpenDeck = { deckId = it },
+            onOpenDeck = { deckId -> target = StudyTarget(deckId) },
+            onOpenCard = { deckId, cardId -> target = StudyTarget(deckId, cardId) },
         )
     } else {
-        val deck = remember(open) { bank.deck(open) }
-        BackHandler { deckId = null }
+        val deck = remember(open.deckId) { bank.deck(open.deckId) }
+        BackHandler { target = null }
         StudyScreen(
             deck = deck,
             states = states,
@@ -106,7 +109,8 @@ fun AppRoot(
             reduceMotion = reduceMotion,
             onMark = { id, status -> store.mark(id, status) },
             onResetDeck = { store.resetDeck(deck) },
-            onExit = { deckId = null },
+            onExit = { target = null },
+            startCardId = open.cardId,
         )
     }
 }

@@ -24,6 +24,10 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -51,8 +55,11 @@ fun DecksScreen(
     onToggleTheme: () -> Unit,
     onRefresh: () -> Unit,
     onOpenDeck: (Int) -> Unit,
+    onOpenCard: (deckId: Int, cardId: String) -> Unit,
 ) {
     val strings = LocalAppStrings.current
+    var query by remember { mutableStateOf("") }
+    val hits = remember(decks, query, lang) { searchCards(decks, query, lang) }
     val allCards = decks.flatMap { it.cards }
     val known = allCards.count { states[it.id] == CardStatus.KNOWN }
     val again = allCards.count { states[it.id] == CardStatus.AGAIN }
@@ -100,18 +107,50 @@ fun DecksScreen(
                         again = again,
                         strings = strings,
                     )
+                    Spacer(Modifier.height(20.dp))
+                    SearchBar(
+                        query = query,
+                        onQueryChange = { query = it },
+                        onClear = { query = "" },
+                        strings = strings,
+                        placeholder = strings.searchPlaceholder,
+                    )
                     Spacer(Modifier.height(28.dp))
                 }
             }
-            items(decks, key = { it.id }) { deck ->
-                DeckRow(
-                    deck = deck,
-                    strings = strings,
-                    known = deck.cards.count { states[it.id] == CardStatus.KNOWN },
-                    again = deck.cards.count { states[it.id] == CardStatus.AGAIN },
-                    onOpenDeck = onOpenDeck,
-                )
-                Spacer(Modifier.height(12.dp))
+            if (query.isNotBlank()) {
+                if (hits.isEmpty()) {
+                    item { SearchEmpty(strings = strings) }
+                } else {
+                    item {
+                        Text(
+                            strings.resultsCount(hits.size),
+                            style = InkType.eyebrow,
+                            color = MaterialTheme.colorScheme.primary,
+                            modifier = Modifier.padding(bottom = 10.dp),
+                        )
+                    }
+                    items(hits, key = { it.card.id }) { hit ->
+                        SearchResultRow(
+                            hit = hit,
+                            strings = strings,
+                            lang = lang,
+                            onOpenCard = onOpenCard,
+                        )
+                        Spacer(Modifier.height(10.dp))
+                    }
+                }
+            } else {
+                items(decks, key = { it.id }) { deck ->
+                    DeckRow(
+                        deck = deck,
+                        strings = strings,
+                        known = deck.cards.count { states[it.id] == CardStatus.KNOWN },
+                        again = deck.cards.count { states[it.id] == CardStatus.AGAIN },
+                        onOpenDeck = onOpenDeck,
+                    )
+                    Spacer(Modifier.height(12.dp))
+                }
             }
             item {
                 Spacer(Modifier.height(20.dp))

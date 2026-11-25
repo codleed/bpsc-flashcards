@@ -43,6 +43,18 @@ data class AppStrings(
     val backToDecksAction: String,
     val resetAndPractice: String,
     val knownInDeck: (known: Int, total: Int) -> String,
+    val searchPlaceholder: String,
+    val resultsCount: (count: Int) -> String,
+    val searchEmptyTitle: String,
+    val searchEmptyBody: String,
+    val clearSearch: String,
+    val cardPosition: (n: Int, total: Int) -> String,
+    val prev: String,
+    val next: String,
+    val cardBrowse: String,
+    val endOfDeckTitle: String,
+    val endOfDeckBody: String,
+    val startPractice: String,
 )
 
 val AppStringsEn = AppStrings(
@@ -82,6 +94,18 @@ val AppStringsEn = AppStrings(
     backToDecksAction = "BACK TO DECKS",
     resetAndPractice = "RESET DECK & PRACTICE AGAIN",
     knownInDeck = { known, total -> "$known of $total known in this deck" },
+    searchPlaceholder = "Search questions and answers…",
+    resultsCount = { count -> if (count == 1) "1 CARD MATCHES" else "$count CARDS MATCH" },
+    searchEmptyTitle = "No cards match",
+    searchEmptyBody = "Try a shorter word — search looks in every question and answer, in both languages.",
+    clearSearch = "CLEAR",
+    cardPosition = { n, total -> "Card $n of $total" },
+    prev = "PREV",
+    next = "NEXT",
+    cardBrowse = "BROWSING DECK",
+    endOfDeckTitle = "End of deck",
+    endOfDeckBody = "You have seen every card in this deck. Start a practice round or go back.",
+    startPractice = "START PRACTICE",
 )
 
 val LocalAppStrings = staticCompositionLocalOf { AppStringsEn }
