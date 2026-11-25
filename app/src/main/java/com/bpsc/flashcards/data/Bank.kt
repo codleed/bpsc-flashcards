@@ -15,6 +15,9 @@ import java.net.URL
 /** Card deck is content, not code: fetched from the deployed cards file, cached locally. */
 const val REMOTE_CARDS_URL: String = "https://bpsc-qbank.netlify.app/questions.json"
 
+/** Synthetic deck that repeats every card; it must not be counted or searched twice. */
+const val MIXED_DECK_ID: Int = 0
+
 data class Card(
     val deckId: Int,
     val n: Int,
@@ -97,7 +100,7 @@ class Bank(context: Context) {
             _decks.value = parse(text)
             _status.value = CardsStatus.Updated(
                 changed = previous != text,
-                total = _decks.value.sumOf { it.cards.size },
+                total = _decks.value.filter { it.id != MIXED_DECK_ID }.sumOf { it.cards.size },
             )
         } catch (e: Exception) {
             _status.value = CardsStatus.Stale(e.message ?: "download failed")
@@ -144,14 +147,16 @@ class Bank(context: Context) {
                         aUr = q.optString("a_ur").ifBlank { null },
                     )
                 },
-                titleUr = d.optString("title_ur").ifBlank { null },
-                descUr = d.optString("desc_ur").ifBlank { null },
-                tagUr = d.optString("tag_ur").ifBlank { null },
+                // Note the camelCase keys: the published questions.json uses
+                // titleUr/descUr/tagUr, not title_ur/desc_ur/tag_ur.
+                titleUr = d.optString("titleUr").ifBlank { null },
+                descUr = d.optString("descUr").ifBlank { null },
+                tagUr = d.optString("tagUr").ifBlank { null },
             )
         }
         val total = parsed.sumOf { it.cards.size }
         val mixed = Deck(
-            0,
+            MIXED_DECK_ID,
             "Mixed Practice",
             "All $total cards, shuffled",
             "ALL",

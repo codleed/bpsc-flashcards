@@ -1,7 +1,10 @@
-// Parses every NN_IT_Teacher_Interview_QA.md in the BPSC folder into:
+// Parses every NN_IT_Teacher_Interview_QA.md (and, where present, the matching
+// NN_IT_Teacher_Interview_QA.json export) in the BPSC folder into:
 //   - flashcards-app/app/src/main/assets/questions.json (bundled in the APK, first-run/offline copy)
 //   - ../Demo/apps/web/public/questions.json          (served live at bpsc-qbank.netlify.app)
 // New markdown files are picked up automatically; add a deckMeta entry to name them nicely.
+// A matching JSON export (meta + qa rows) takes precedence: it carries the clean
+// English question plus both Urdu fields, so regeneration cannot lose them.
 // Usage: node tools/generate_cards.mjs  [--quiet]
 import { readdirSync, readFileSync, writeFileSync, mkdirSync, existsSync } from "node:fs";
 import { dirname, join } from "node:path";
@@ -33,6 +36,10 @@ const deckMeta = {
   16: { title: "Pakistan, Civics & IT", desc: "Hockey World Cup, federalism, Articles 25–28, RAM vs ROM", tag: "GK", titleUr: "پاکستان، شہریت اور آئی ٹی", descUr: "ہاکی ورلڈ کپ، وفاقیت، آئین کے آرٹیکل 25–28، RAM اور ROM", tagUr: "جنرل نالج" },
   17: { title: "Personal, World & Science", desc: "Intro, Hormuz, algorithms, scientific method", tag: "MIXED", titleUr: "ذاتی، دنیا اور سائنس", descUr: "تعارف، ہرمز، الگورتھم، سائنسی طریقہ", tagUr: "مختلط" },
   18: { title: "IT Fundamentals & Personal", desc: "Primary memory, software types, malware, Babbage", tag: "IT", titleUr: "آئی ٹی بنیادی باتیں اور ذاتی", descUr: "پرائمری میموری، سافٹ ویئر کی اقسام، بدنیتی سافٹ ویئر، چارلس بیبیج", tagUr: "آئی ٹی" },
+  19: { title: "Hub Interview (Female)", desc: "Intro, Islamiyat, geography, IT basics", tag: "MIXED", titleUr: "حب انٹرویو (خاتون)", descUr: "تعارف، اسلامیات، جغرافیہ، آئی ٹی بنیادی باتیں", tagUr: "مختلط" },
+  20: { title: "Kalat Panel — Pedagogy", desc: "Flipped class, TPACK, lab management, Islamiyat", tag: "TEACHING", titleUr: "قلات پینل — تدریسی طریقے", descUr: "فلیپڈ کلاس، TPACK، لیب کا انتظام، اسلامیات", tagUr: "تدریس" },
+  21: { title: "Kharan Interview (Female)", desc: "Seerah, Kharan, MS Office, cybersecurity", tag: "MIXED", titleUr: "خاران انٹرویو (خاتون)", descUr: "سیرت، خاران، ایم ایس آفس، سائبر سیکیورٹی", tagUr: "مختلط" },
+  22: { title: "Islamiat, Pakistan Movement & IT", desc: "Pillars, Two-Nation Theory, databases, programming", tag: "MIXED", titleUr: "اسلامیات، تحریکِ پاکستان اور آئی ٹی", descUr: "ارکانِ اسلام، دو قومی نظریہ، ڈیٹابیس، پروگرامنگ", tagUr: "مختلط" },
 };
 
 const fileRe = /^(\d+)_IT_Teacher_Interview_QA\.md$/;
@@ -70,6 +77,39 @@ function loadUrduAll() {
   return byDeck;
 }
 
+// Bilingual export files (<id>_IT_Teacher_Interview_QA.json) carry meta + qa
+// rows with q_en, a_en, q_ur and a_ur. When one exists it is the source of
+// truth for that deck, so the merge survives every regeneration.
+function loadDeckJson(id) {
+  const p = join(repoRoot, `${id}_IT_Teacher_Interview_QA.json`);
+  if (!existsSync(p)) return null;
+  let j;
+  try {
+    j = JSON.parse(readFileSync(p, "utf8"));
+  } catch (e) {
+    console.warn(`deck ${id}: invalid JSON (${e.message}) — falling back to markdown`);
+    return null;
+  }
+  if (!Array.isArray(j.qa) || j.qa.length === 0) {
+    console.warn(`deck ${id}: JSON has no qa rows — falling back to markdown`);
+    return null;
+  }
+  const questions = j.qa.map((row, i) => {
+    const n = Number(String(row.id ?? "").split("-")[1]) || i + 1;
+    if (!row.q_en || !row.a_en) {
+      throw new Error(`deck ${id}: JSON row ${row.id ?? n} is missing q_en/a_en`);
+    }
+    const card = { n, q: row.q_en, a: row.a_en };
+    if (row.q_ur && row.a_ur) {
+      card.q_ur = row.q_ur;
+      card.a_ur = row.a_ur;
+    }
+    return card;
+  });
+  console.log(`deck ${id}: loaded ${questions.length} cards from JSON`);
+  return questions;
+}
+
 function clean(s) {
   return s
     .replace(/<br\s*\/?>/gi, " ")
@@ -101,18 +141,21 @@ let total = 0;
 const urduAll = loadUrduAll();
 
 for (const { id, f } of files) {
-  const lines = readFileSync(join(repoRoot, f), "utf8").split(/\r?\n/);
-  const questions = [];
-  for (const line of lines) {
-    const m = rowRe.exec(line);
-    if (!m) continue;
-    const n = Number(m[1]);
-    const q = clean(m[2]);
-    const a = clean(m[3]);
-    if (!q || !a) throw new Error(`${f} row ${n}: empty cell`);
-    questions.push({ n, q, a });
+  let questions = loadDeckJson(id);
+  if (!questions) {
+    const lines = readFileSync(join(repoRoot, f), "utf8").split(/\r?\n/);
+    questions = [];
+    for (const line of lines) {
+      const m = rowRe.exec(line);
+      if (!m) continue;
+      const n = Number(m[1]);
+      const q = clean(m[2]);
+      const a = clean(m[3]);
+      if (!q || !a) throw new Error(`${f} row ${n}: empty cell`);
+      questions.push({ n, q, a });
+    }
+    if (questions.length === 0) throw new Error(`${f}: no Q&A table rows found`);
   }
-  if (questions.length === 0) throw new Error(`${f}: no Q&A table rows found`);
   const meta = deckMeta[id] ?? {
     title: `Deck ${id}`,
     desc: "Your own interview Q&A",
@@ -128,18 +171,19 @@ for (const { id, f } of files) {
   const urdu = urEntry?.cards ?? new Map();
   const titleUr = urEntry?.title ?? meta.titleUr ?? null;
   const descUr = urEntry?.desc ?? meta.descUr ?? null;
-  if (urdu.size === 0) {
-    console.warn(`deck ${id}: no Urdu translation — cards will show English.`);
-  } else if (urdu.size !== questions.length) {
-    console.warn(`deck ${id}: Urdu covers ${urdu.size}/${questions.length} cards — the rest fall back to English.`);
-  }
   const questionsUr = questions.map((qn) => {
     const t = urdu.get(qn.n);
     if (!t) return qn;
     return { ...qn, q_ur: t.q, a_ur: t.a };
   });
-  if (urdu.size > 0) {
-    console.log(`deck ${id}: urdu ${urdu.size}/${questions.length}`);
+  const urduCount = questionsUr.filter((qn) => qn.q_ur && qn.a_ur).length;
+  if (urduCount === 0) {
+    console.warn(`deck ${id}: no Urdu translation — cards will show English.`);
+  } else if (urduCount !== questions.length) {
+    console.warn(`deck ${id}: Urdu covers ${urduCount}/${questions.length} cards — the rest fall back to English.`);
+  }
+  if (urduCount > 0) {
+    console.log(`deck ${id}: urdu ${urduCount}/${questions.length}`);
   }
   total += questions.length;
   decks.push({ id, title: meta.title, desc: meta.desc, tag: meta.tag, titleUr, descUr, tagUr: meta.tagUr ?? null, questions: questionsUr });

@@ -40,7 +40,10 @@ import com.bpsc.flashcards.data.AppLang
 import com.bpsc.flashcards.data.CardsStatus
 import com.bpsc.flashcards.data.CardStatus
 import com.bpsc.flashcards.data.Deck
+import com.bpsc.flashcards.data.MIXED_DECK_ID
+import com.bpsc.flashcards.data.ReleaseInfo
 import com.bpsc.flashcards.data.ThemeMode
+import com.bpsc.flashcards.data.UpdateStatus
 import com.bpsc.flashcards.ui.theme.InkType
 import com.bpsc.flashcards.ui.theme.warmAccent
 
@@ -56,11 +59,17 @@ fun DecksScreen(
     onRefresh: () -> Unit,
     onOpenDeck: (Int) -> Unit,
     onOpenCard: (deckId: Int, cardId: String) -> Unit,
+    updateRelease: ReleaseInfo? = null,
+    updateStatus: UpdateStatus = UpdateStatus.Idle,
+    showUpdate: Boolean = false,
+    onDownloadUpdate: () -> Unit = {},
+    onInstallUpdate: () -> Unit = {},
+    onDismissUpdate: () -> Unit = {},
 ) {
     val strings = LocalAppStrings.current
     var query by remember { mutableStateOf("") }
     val hits = remember(decks, query, lang) { searchCards(decks, query, lang) }
-    val allCards = decks.flatMap { it.cards }
+    val allCards = decks.filter { it.id != MIXED_DECK_ID }.flatMap { it.cards }
     val known = allCards.count { states[it.id] == CardStatus.KNOWN }
     val again = allCards.count { states[it.id] == CardStatus.AGAIN }
 
@@ -91,6 +100,17 @@ fun DecksScreen(
                     Spacer(Modifier.height(14.dp))
                     CardSyncStatus(cardsStatus = cardsStatus, strings = strings, onRefresh = onRefresh)
                     Spacer(Modifier.height(20.dp))
+
+                    if (showUpdate && updateRelease != null) {
+                        UpdateBanner(
+                            release = updateRelease,
+                            status = updateStatus,
+                            onDownload = onDownloadUpdate,
+                            onInstall = onInstallUpdate,
+                            onDismiss = onDismissUpdate,
+                        )
+                        Spacer(Modifier.height(20.dp))
+                    }
 
                     TogglesRow(
                         lang = lang,
@@ -130,7 +150,7 @@ fun DecksScreen(
                             modifier = Modifier.padding(bottom = 10.dp),
                         )
                     }
-                    items(hits, key = { it.card.id }) { hit ->
+                    items(hits, key = { "${it.deck.id}:${it.card.id}" }) { hit ->
                         SearchResultRow(
                             hit = hit,
                             strings = strings,

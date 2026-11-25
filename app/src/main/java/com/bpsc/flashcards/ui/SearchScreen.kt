@@ -34,6 +34,7 @@ import com.bpsc.flashcards.R
 import com.bpsc.flashcards.data.AppLang
 import com.bpsc.flashcards.data.Card
 import com.bpsc.flashcards.data.Deck
+import com.bpsc.flashcards.data.MIXED_DECK_ID
 import com.bpsc.flashcards.ui.theme.InkType
 
 data class SearchHit(val card: Card, val deck: Deck)
@@ -44,6 +45,9 @@ fun searchCards(decks: List<Deck>, query: String, lang: AppLang): List<SearchHit
     if (q.isEmpty()) return emptyList()
     val hits = mutableListOf<SearchHit>()
     for (deck in decks) {
+        // "Mixed Practice" repeats every card from the real decks. Searching it too
+        // returns each match twice and reuses the same LazyColumn key, which crashes.
+        if (deck.id == MIXED_DECK_ID) continue
         for (card in deck.cards) {
             val hay = listOfNotNull(card.q, card.a, card.qUr, card.aUr)
                 .joinToString("\u0000").lowercase()
