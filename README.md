@@ -6,6 +6,8 @@ A native Android app (Kotlin + Jetpack Compose, Material 3) for practicing the B
 
 - Deck list with per-deck and overall progress (mastered / to revisit).
 - Tap a card to flip it: question on the front, the speakable answer on the back.
+- **PREV / NEXT** under every card to move through the deck at your own pace (dimmed at the ends).
+- **Search** on the home screen across every question and answer, in both languages — e.g. "Arkan". Tapping a result opens that deck at that card (browse mode, with a "start practice" option at the end).
 - Mark **GOT IT** (mastered) or **AGAIN** (kept in the round). Progress persists on the device.
 - Light "ink & paper" and dark "night revision" themes.
 
@@ -28,6 +30,65 @@ Cards are content, not code. On every launch the app:
 
 To host your own copy, serve any `questions.json` matching the deck schema and point the constant at it. The JSON is generated from the source markdown files (see below).
 
+## App updates (self-hosted)
+
+The app is not on Play, so it updates itself from the same Netlify site as the cards.
+
+On every launch, on the deck list, the app fetches
+`https://bpsc-qbank.netlify.app/app/version.json`. Nothing appears unless the
+published `versionCode` is higher than the installed one. When it is, a
+**non-blocking banner** shows the new version number and your release notes with:
+
+- **DOWNLOAD** — fetches the APK into the app's own cache, verifies its SHA-256
+  against the manifest, then turns into **INSTALL**.
+- **INSTALL** — hands the APK to the system installer over a `FileProvider`
+  (no storage permission needed). Android will ask once to allow "install unknown
+  apps" for this app.
+- **LATER** — hides the banner for this launch only. Studying is never blocked.
+
+A failed check or download is silent; the banner simply does not appear.
+
+Tapping **INSTALL** installs in place, so progress is kept. That only works
+because release builds are signed with `keystore/bpsc-release.jks`.
+
+### Publishing a release
+
+1. Bump the version in `app/src/main/java/com/bpsc/flashcards/data/AppVersion.kt`
+   (`CODE` must always increase; `NAME` is what users see). Gradle reads that same
+   file, so the APK and the manifest can never disagree.
+2. `node tools/publish-app.mjs` — builds the signed release APK, copies it to
+   `Demo/apps/web/public/app/bpsc-<code>.apk`, writes `app/version.json` with the
+   checksum, commits only those files, and pushes.
+3. Netlify serves it; installed phones show the banner on their next launch.
+
+Use `RELEASE_NOTES="…" node tools/publish-app.mjs` to set the note text, or it
+defaults to "Version X.Y".
+
+**Back up the keystore.** `keystore/` is gitignored on purpose. If you lose it,
+installed phones can never update in place again — they would have to uninstall
+and reinstall, losing their saved progress.
+
+The release build blocks cleartext HTTP; a debug build reads a local manifest so
+you can rehearse the flow with `node tools/mock-update.mjs`.
+
+## Fixing search crash (2026-11-25)
+
+Searching any word that matched a card crashed the app with
+`IllegalArgumentException: Key "d3-n25" was already used`. Cause: `Bank.parse()`
+prepends a synthetic "Mixed Practice" deck (id 0) that repeats every card, so each
+match appeared twice and Compose rejected the duplicate `LazyColumn` keys. Fixes:
+
+- `searchCards()` skips the synthetic deck (in `SearchScreen.kt`).
+- Result keys are now composite (`deck.id:card.id`).
+- Totals exclude the synthetic deck, so the header counts 1,100 not 2,200.
+
+## Urdu deck metadata (2026-11-25)
+
+`Bank.kt` read `title_ur`/`desc_ur`/`tag_ur`, but `questions.json` uses
+`titleUr`/`descUr`/`tagUr`, so Urdu deck titles/descriptions never displayed.
+`DeckRow` still only renders the English title/desc; the fixed fields are read and
+available for a future Urdu chrome pass.
+
 ## Building
 
 Requirements: JDK 17, Android SDK (compileSdk 35, build-tools 35.0.0).
@@ -35,6 +96,9 @@ Requirements: JDK 17, Android SDK (compileSdk 35, build-tools 35.0.0).
 ```bash
 ./gradlew assembleDebug
 # -> app/build/outputs/apk/debug/app-debug.apk
+
+./gradlew assembleRelease
+# -> app/build/outputs/apk/release/app-release.apk  (signed, see keystore/)
 ```
 
 ## Regenerating the card data

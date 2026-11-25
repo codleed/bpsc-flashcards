@@ -1,0 +1,8 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  Only the app's private cache/download folder is shared with the package
+  installer, and only for the APK we just downloaded. Nothing else is exposed.
+-->
+<paths>
+    <cache-path name="downloads" path="downloads/" />
+</paths>

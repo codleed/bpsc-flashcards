@@ -20,9 +20,11 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import com.bpsc.flashcards.data.AppLang
 import com.bpsc.flashcards.data.AppPrefs
+import com.bpsc.flashcards.data.AppUpdater
 import com.bpsc.flashcards.data.Bank
 import com.bpsc.flashcards.data.ProgressStore
 import com.bpsc.flashcards.data.ThemeMode
+import com.bpsc.flashcards.data.UpdateStatus
 import com.bpsc.flashcards.ui.DecksScreen
 import com.bpsc.flashcards.ui.StudyScreen
 import com.bpsc.flashcards.ui.theme.BpscFlashTheme
@@ -34,6 +36,7 @@ class MainActivity : ComponentActivity() {
         super.onCreate(savedInstanceState)
         val bank = Bank(applicationContext)
         val store = ProgressStore(applicationContext)
+        val updater = AppUpdater(applicationContext)
         val systemDark = (resources.configuration.uiMode and Configuration.UI_MODE_NIGHT_MASK) ==
             Configuration.UI_MODE_NIGHT_YES
         val prefs = AppPrefs(applicationContext, systemDark)
@@ -53,6 +56,7 @@ class MainActivity : ComponentActivity() {
                         bank = bank,
                         store = store,
                         prefs = prefs,
+                        updater = updater,
                         lang = lang,
                         theme = theme,
                         reduceMotion = animationsOff,
@@ -70,6 +74,7 @@ fun AppRoot(
     bank: Bank,
     store: ProgressStore,
     prefs: AppPrefs,
+    updater: AppUpdater,
     lang: AppLang,
     theme: ThemeMode,
     reduceMotion: Boolean,
@@ -77,12 +82,19 @@ fun AppRoot(
     val decks by bank.decks.collectAsState()
     val states by store.states.collectAsState()
     val cardsStatus by bank.status.collectAsState()
+    val updateStatus by updater.status.collectAsState()
+    val updateRelease by updater.release.collectAsState()
     val scope = rememberCoroutineScope()
     var target by remember { mutableStateOf<StudyTarget?>(null) }
+    var updateDismissed by remember { mutableStateOf(false) }
 
-    // Pull the newest cards whenever the app comes to the deck list.
+    // Pull the newest cards and check for a newer app version whenever we land on
+    // the deck list. Both are network calls that never block the UI.
     LaunchedEffect(target) {
-        if (target == null) scope.launch { bank.refresh() }
+        if (target == null) {
+            scope.launch { bank.refresh() }
+            updater.check()
+        }
     }
 
     val open = target
@@ -93,11 +105,19 @@ fun AppRoot(
             cardsStatus = cardsStatus,
             lang = lang,
             theme = theme,
+            updateRelease = updateRelease,
+            updateStatus = updateStatus,
+            showUpdate = !updateDismissed && updateRelease != null,
             onToggleLang = { prefs.toggleLang() },
             onToggleTheme = { prefs.toggleTheme() },
             onRefresh = { scope.launch { bank.refresh() } },
             onOpenDeck = { deckId -> target = StudyTarget(deckId) },
             onOpenCard = { deckId, cardId -> target = StudyTarget(deckId, cardId) },
+            onDownloadUpdate = { updateRelease?.let { scope.launch { updater.download(it) } } },
+            onInstallUpdate = {
+                (updateStatus as? UpdateStatus.Downloaded)?.let { updater.install(it.file) }
+            },
+            onDismissUpdate = { updateDismissed = true },
         )
     } else {
         val deck = remember(open.deckId) { bank.deck(open.deckId) }
