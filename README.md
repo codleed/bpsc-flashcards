@@ -110,6 +110,11 @@ node tools/generate_cards.mjs                     # reads ../.. by default
 BPSC_DIR=/path/to/markdown/folder node tools/generate_cards.mjs   # or point it anywhere
 ```
 
-Urdu translations are picked up from `<BPSC_DIR>/translations/ur/*.json` (deck-export format).
+Urdu translations are picked up from `<BPSC_DIR>/translations/ur/*.json` (deck-export format). Decks 19–24 carry their Urdu inside their own bilingual source file instead (see below).
 
 A new deck without a `deckMeta` entry in `tools/generate_cards.mjs` gets a placeholder title and a warning — add one line there to name it.
+
+### Sources that are not markdown
+
+- **`NN_IT_Teacher_Interview_QA.json`** (decks 19–24): a bilingual export with `meta` + `qa` rows (`id`, `q_roman`, `q_en`, `q_ur`, `a_en`, `a_ur`). It wins over the markdown table, so regenerating cannot drop the Urdu text. These files are the only place decks 19–22 keep their Urdu — if they go missing, those decks silently fall back to English-only from the markdown.
+- **`repeated_questions.json`**: builds deck 24, "Most Repeated Questions". Rows carry `rank`, `question`, `answer`, `question_ur`, `answer_ur`. It is a ranked repetition of questions already in the bank, so the same question legitimately appears twice — once in its source deck and once here. Display order is **first**, ahead of every numbered deck, because it is the highest-value revision set; its id stays 24, since ids map to source files and everything looks cards up by id.

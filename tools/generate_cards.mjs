@@ -40,7 +40,22 @@ const deckMeta = {
   20: { title: "Kalat Panel — Pedagogy", desc: "Flipped class, TPACK, lab management, Islamiyat", tag: "TEACHING", titleUr: "قلات پینل — تدریسی طریقے", descUr: "فلیپڈ کلاس، TPACK، لیب کا انتظام، اسلامیات", tagUr: "تدریس" },
   21: { title: "Kharan Interview (Female)", desc: "Seerah, Kharan, MS Office, cybersecurity", tag: "MIXED", titleUr: "خاران انٹرویو (خاتون)", descUr: "سیرت، خاران، ایم ایس آفس، سائبر سیکیورٹی", tagUr: "مختلط" },
   22: { title: "Islamiat, Pakistan Movement & IT", desc: "Pillars, Two-Nation Theory, databases, programming", tag: "MIXED", titleUr: "اسلامیات، تحریکِ پاکستان اور آئی ٹی", descUr: "ارکانِ اسلام، دو قومی نظریہ، ڈیٹابیس، پروگرامنگ", tagUr: "مختلط" },
+  23: { title: "Kalat Zone Panel A", desc: "Intro, Khuzdar, prophets of Surah Yusuf, IT basics", tag: "MIXED", titleUr: "قلات زون پینل اے", descUr: "تعارف، خضدار، سورۃ یوسف کے انبیاء، آئی ٹی بنیادی باتیں", tagUr: "مختلط" },
+  24: {
+    title: "Most Repeated Questions",
+    desc: "Asked across the most panels, ranked by how often they came up",
+    tag: "MOST ASKED",
+    titleUr: "سب سے زیادہ پوچھے گئے سوالات",
+    descUr: "جو سب سے زیادہ پینلز میں آئے، تعداد کے حساب سے ترتیب دیے گئے",
+    tagUr: "اہم سوالات",
+  },
 };
+
+// The "most asked" deck is not a numbered interview source — it is a ranked
+// repetition list of questions already in the bank, so it gets an id of its own
+// and is appended after the markdown-driven decks.
+const REPEATED_DECK_ID = 24;
+const REPEATED_FILE = "repeated_questions.json";
 
 const fileRe = /^(\d+)_IT_Teacher_Interview_QA\.md$/;
 const translationsDir = join(repoRoot, "translations", "ur");
@@ -108,6 +123,45 @@ function loadDeckJson(id) {
   });
   console.log(`deck ${id}: loaded ${questions.length} cards from JSON`);
   return questions;
+}
+
+// The "most repeated questions" deck. Source is repeated_questions.json: a
+// ranked list (rank 1 = asked in the most panels) with English and Urdu text
+// already written out. These deliberately repeat cards from the numbered decks —
+// that is the point of the deck — so the app shows them as their own cards.
+function loadRepeatedQuestions() {
+  const p = join(repoRoot, REPEATED_FILE);
+  if (!existsSync(p)) return null;
+  let j;
+  try {
+    j = JSON.parse(readFileSync(p, "utf8"));
+  } catch (e) {
+    console.warn(`repeated deck: invalid JSON (${e.message}) — skipped`);
+    return null;
+  }
+  const rows = Array.isArray(j.questions) ? j.questions : [];
+  if (rows.length === 0) {
+    console.warn("repeated deck: no questions — skipped");
+    return null;
+  }
+  const seen = new Set();
+  const cards = rows.map((r, i) => {
+    const q = String(r.question ?? "").trim();
+    const a = String(r.answer ?? "").trim();
+    if (!q || !a) throw new Error(`repeated deck: row ${r.rank ?? i + 1} is missing question/answer`);
+    // Keep the file's own ranking; that order is the deck's value.
+    const n = Number(r.rank) || i + 1;
+    if (seen.has(q.toLowerCase())) return null;
+    seen.add(q.toLowerCase());
+    const card = { n, q, a };
+    if (r.question_ur && r.answer_ur) {
+      card.q_ur = String(r.question_ur).trim();
+      card.a_ur = String(r.answer_ur).trim();
+    }
+    return card;
+  }).filter(Boolean);
+  console.log(`repeated deck: loaded ${cards.length} cards, ${cards.filter((c) => c.q_ur).length} with Urdu`);
+  return cards;
 }
 
 function clean(s) {
@@ -189,7 +243,37 @@ for (const { id, f } of files) {
   decks.push({ id, title: meta.title, desc: meta.desc, tag: meta.tag, titleUr, descUr, tagUr: meta.tagUr ?? null, questions: questionsUr });
 }
 
-const json = JSON.stringify({ generated: "from md", decks });
+// Appended last so the numbered decks keep their positions...
+const repeatedCards = loadRepeatedQuestions();
+const repeatedCardDeck = repeatedCards
+  ? {
+      id: REPEATED_DECK_ID,
+      title: deckMeta[REPEATED_DECK_ID].title,
+      desc: deckMeta[REPEATED_DECK_ID].desc,
+      tag: deckMeta[REPEATED_DECK_ID].tag,
+      titleUr: deckMeta[REPEATED_DECK_ID].titleUr,
+      descUr: deckMeta[REPEATED_DECK_ID].descUr,
+      tagUr: deckMeta[REPEATED_DECK_ID].tagUr,
+      questions: repeatedCards,
+    }
+  : null;
+if (repeatedCardDeck) {
+  decks.push(repeatedCardDeck);
+  total += repeatedCards.length;
+}
+
+// Display order: the most-repeated deck goes FIRST — it is the highest-value
+// revision set, so it is what should be on screen when the app opens. Deck ids
+// stay tied to their source files (24 is not a numbered interview source), so
+// only the array order changes; everything in the app looks cards up by id.
+const decksOut = repeatedCardDeck
+  ? [
+      repeatedCardDeck,
+      ...decks.filter((d) => d.id !== REPEATED_DECK_ID),
+    ]
+  : decks;
+
+const json = JSON.stringify({ generated: "from md", decks: decksOut });
 
 mkdirSync(dirname(outFile), { recursive: true });
 writeFileSync(outFile, json, "utf8");
