@@ -117,4 +117,8 @@ A new deck without a `deckMeta` entry in `tools/generate_cards.mjs` gets a place
 ### Sources that are not markdown
 
 - **`NN_IT_Teacher_Interview_QA.json`** (decks 19–24): a bilingual export with `meta` + `qa` rows (`id`, `q_roman`, `q_en`, `q_ur`, `a_en`, `a_ur`). It wins over the markdown table, so regenerating cannot drop the Urdu text. These files are the only place decks 19–22 keep their Urdu — if they go missing, those decks silently fall back to English-only from the markdown.
-- **`repeated_questions.json`**: builds deck 24, "Most Repeated Questions". Rows carry `rank`, `question`, `answer`, `question_ur`, `answer_ur`. It is a ranked repetition of questions already in the bank, so the same question legitimately appears twice — once in its source deck and once here. Display order is **first**, ahead of every numbered deck, because it is the highest-value revision set; its id stays 24, since ids map to source files and everything looks cards up by id.
+- **`repeated_questions.json`**: builds deck 24, "Most Repeated Questions". Rows carry `rank`, `question`, `answer`, `question_ur`, `answer_ur`. It is a ranked repetition of questions already in the bank, so the same question legitimately appears twice — once in its source deck and once here. Display order is **first**, ahead of every numbered deck, because it is the highest-value revision set; its id stays 24, since ids map to source files and everything looks cards up by id. Because 24 is taken, `24_IT_Teacher_Interview_QA.md` is published as deck **124** — without that mapping it was silently dropped from the bundle.
+
+### Fonts
+
+The home screen uses **Fraunces** (display) and **Instrument Sans** (interface), both SIL Open Font License 1.1. They are bundled as static instances in `app/src/main/res/font` (instanced from the upstream variable fonts), and the license texts are in `licenses/`.

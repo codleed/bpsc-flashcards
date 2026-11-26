@@ -49,6 +49,11 @@ const deckMeta = {
     descUr: "جو سب سے زیادہ پینلز میں آئے، تعداد کے حساب سے ترتیب دیے گئے",
     tagUr: "اہم سوالات",
   },
+  25: { title: "Nasirabad Panel A", desc: "Seerah, superpowers, computer basics, constitutional law", tag: "MIXED", titleUr: "نصیر آباد پینل اے", descUr: "سیرت، سپر پاورز، کمپیوٹر بنیادی باتیں، آئینی قوانین", tagUr: "مختلط" },
+  26: { title: "Nasirabad Panel B (Female)", desc: "Year of the Elephant, Aam-e-Huzn, hardware, SAARC", tag: "MIXED", titleUr: "نصیر آباد پینل بی (خاتون)", descUr: "عام الفیل، عام حزن، ہارڈویئر، سارک", tagUr: "مختلط" },
+  27: { title: "Jhalmagsi Interview (Female)", desc: "Salat, Azaan, Balochistan districts, NFC, AI", tag: "MIXED", titleUr: "جھل مگسی انٹرویو (خاتون)", descUr: "نماز، اذان، بلوچستان کے اضلاع، این ایف سی، اے آئی", tagUr: "مختلط" },
+  28: { title: "Zhob Panel — Namaz & GK", desc: "Salat meaning, Azaan translation, Taunsa, Faisalabad, search engines", tag: "GK", titleUr: "ژوب پینل — نماز اور جنرل نالج", descUr: "نماز کا مطلب، اذان کی ترجمہ، تونسہ، فیصل آباد، سرچ انجن", tagUr: "جنرل نالج" },
+  124: { title: "Kalat — Short Discussion", desc: "Arkan, Hijrat, Pakistan Movement, database, computer basics", tag: "MIXED", titleUr: "قلات — مختصر گفتگو", descUr: "ارکان، ہجرت، تحریک پاکستان، ڈیٹابیس، کمپیوٹر بنیادی باتیں", tagUr: "مختلط" },
 };
 
 // The "most asked" deck is not a numbered interview source — it is a ranked
@@ -180,7 +185,12 @@ const rowRe = /^\|\s*(\d+)\s*\|(.*)\|(.*)\|\s*$/;
 const files = readdirSync(repoRoot)
   .map((f) => fileRe.exec(f))
   .filter(Boolean)
-  .map((m) => ({ id: Number(m[1]), f: m[0] }))
+  .map((m) => {
+    const n = Number(m[1]);
+    // Deck id 24 belongs to the generated "Most Repeated" deck, so a markdown
+    // file with that number is published as 124 instead of being silently dropped.
+    return { id: n === REPEATED_DECK_ID ? n + 100 : n, f: m[0] };
+  })
   .filter((f) => existsSync(join(repoRoot, f.f)))
   .sort((a, b) => a.id - b.id);
 
