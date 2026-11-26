@@ -1,13 +1,13 @@
 package com.bpsc.flashcards.ui
 
 import androidx.compose.foundation.background
-import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
@@ -16,7 +16,6 @@ import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.Icon
-import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
@@ -28,7 +27,8 @@ import androidx.compose.ui.unit.dp
 import com.bpsc.flashcards.R
 import com.bpsc.flashcards.data.ReleaseInfo
 import com.bpsc.flashcards.data.UpdateStatus
-import com.bpsc.flashcards.ui.theme.InkType
+import com.bpsc.flashcards.ui.theme.LocalPaperColors
+import com.bpsc.flashcards.ui.theme.PaperType
 
 /**
  * Non-blocking update banner for the deck list.
@@ -45,83 +45,129 @@ fun UpdateBanner(
     onDismiss: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
-    val scheme = MaterialTheme.colorScheme
+    val colors = LocalPaperColors.current
+    val progress = (status as? UpdateStatus.Downloading)?.progress
 
     Column(
         modifier = modifier
             .fillMaxWidth()
-            .clip(MaterialTheme.shapes.medium)
-            .background(scheme.surface)
-            .border(1.dp, scheme.primary, MaterialTheme.shapes.medium)
-            .padding(horizontal = 14.dp, vertical = 12.dp),
+            .clip(RoundedCornerShape(24.dp))
+            .background(colors.sand)
+            .padding(horizontal = 18.dp, vertical = 16.dp),
     ) {
         Row(verticalAlignment = Alignment.CenterVertically) {
             Icon(
                 painter = painterResource(R.drawable.ic_update),
                 contentDescription = null,
-                tint = scheme.primary,
+                tint = colors.greenText,
                 modifier = Modifier.size(18.dp),
             )
             Spacer(Modifier.width(10.dp))
             Column(Modifier.weight(1f)) {
                 Text(
-                    "UPDATE AVAILABLE · v${release.versionName}",
-                    style = InkType.eyebrow,
-                    color = scheme.primary,
+                    "Update available · v${release.versionName}",
+                    style = PaperType.tag,
+                    color = colors.greenText,
                     maxLines = 1,
                     overflow = TextOverflow.Ellipsis,
                 )
                 Spacer(Modifier.height(4.dp))
                 Text(
                     release.notes ?: "A newer version of this app is ready.",
-                    style = InkType.body,
-                    color = scheme.onSurfaceVariant,
+                    style = PaperType.small,
+                    color = colors.muted,
                     maxLines = 2,
                     overflow = TextOverflow.Ellipsis,
                 )
             }
         }
-        Spacer(Modifier.height(10.dp))
+
+        // A determinate bar while the APK arrives, so a 13 MB download is visibly
+        // advancing rather than looking like nothing is happening.
+        if (status is UpdateStatus.Downloading) {
+            Spacer(Modifier.height(12.dp))
+            Box(
+                Modifier
+                    .fillMaxWidth()
+                    .height(4.dp)
+                    .clip(RoundedCornerShape(2.dp))
+                    .background(colors.ink.copy(alpha = 0.15f)),
+            ) {
+                Box(
+                    Modifier
+                        .fillMaxHeight()
+                        .fillMaxWidth((progress ?: 0f).coerceIn(0f, 1f))
+                        .background(colors.greenText),
+                )
+            }
+        }
+
+        Spacer(Modifier.height(14.dp))
         Row(verticalAlignment = Alignment.CenterVertically) {
             // One button, three jobs. A nested clickable inside a clickable parent
             // never receives the tap, so the action has to switch here instead.
             val (label, action) = when (status) {
-                is UpdateStatus.Downloading -> "DOWNLOADING…" to null
+                is UpdateStatus.Downloading ->
+                    (if (progress != null && progress > 0.01f)
+                        "DOWNLOADING ${(progress * 100).toInt()}%"
+                    else "CONNECTING…") to null
                 is UpdateStatus.Downloaded -> "INSTALL" to onInstall
                 is UpdateStatus.Failed -> "RETRY" to onDownload
                 else -> "DOWNLOAD" to onDownload
             }
             Box(
                 Modifier
-                    .clip(RoundedCornerShape(6.dp))
-                    .background(scheme.primary)
+                    .height(44.dp)
+                    .clip(RoundedCornerShape(22.dp))
+                    .background(colors.yellow)
                     .then(if (action != null) Modifier.clickable(onClick = action) else Modifier)
-                    .padding(horizontal = 14.dp, vertical = 8.dp),
+                    .padding(horizontal = 18.dp),
+                contentAlignment = Alignment.Center,
             ) {
                 if (status is UpdateStatus.Downloading) {
                     Row(verticalAlignment = Alignment.CenterVertically) {
-                        CircularProgressIndicator(
-                            color = scheme.onPrimary,
-                            strokeWidth = 2.dp,
-                            modifier = Modifier.size(14.dp),
-                        )
+                        // Determinate once the server told us the size; until then
+                        // an indeterminate spinner, because "0% forever" reads as broken.
+                        if (progress != null && progress > 0f) {
+                            CircularProgressIndicator(
+                                progress = { progress },
+                                color = colors.onYellow,
+                                trackColor = colors.onYellow.copy(alpha = 0.25f),
+                                strokeWidth = 2.dp,
+                                modifier = Modifier.size(14.dp),
+                            )
+                        } else {
+                            CircularProgressIndicator(
+                                color = colors.onYellow,
+                                strokeWidth = 2.dp,
+                                modifier = Modifier.size(14.dp),
+                            )
+                        }
                         Spacer(Modifier.width(8.dp))
-                        Text(label, style = InkType.eyebrow, color = scheme.onPrimary)
+                        Text(label, style = PaperType.count, color = colors.onYellow)
                     }
                 } else {
-                    Text(label, style = InkType.eyebrow, color = scheme.onPrimary)
+                    Text(label, style = PaperType.tag, color = colors.onYellow)
                 }
             }
-            Spacer(Modifier.width(8.dp))
+            Spacer(Modifier.width(4.dp))
             Text(
                 "LATER",
-                style = InkType.eyebrow,
-                color = scheme.outline,
+                style = PaperType.tag,
+                color = colors.muted,
                 modifier = Modifier
-                    .clip(RoundedCornerShape(6.dp))
+                    .clip(RoundedCornerShape(22.dp))
                     .clickable(onClick = onDismiss)
-                    .padding(horizontal = 12.dp, vertical = 8.dp),
+                    .padding(horizontal = 14.dp, vertical = 12.dp),
             )
+            Spacer(Modifier.weight(1f))
+            if (status is UpdateStatus.Failed) {
+                Text(
+                    "Download failed",
+                    style = PaperType.small,
+                    color = colors.muted,
+                )
+            }
         }
     }
 }

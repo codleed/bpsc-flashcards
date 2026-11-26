@@ -18,6 +18,8 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.LocalView
+import androidx.core.view.WindowCompat
 import com.bpsc.flashcards.data.AppLang
 import com.bpsc.flashcards.data.AppPrefs
 import com.bpsc.flashcards.data.AppUpdater
@@ -87,6 +89,18 @@ fun AppRoot(
     val scope = rememberCoroutineScope()
     var target by remember { mutableStateOf<StudyTarget?>(null) }
     var updateDismissed by remember { mutableStateOf(false) }
+
+    // The window is edge-to-edge on Android 15 (targetSdk 35), so the system bar
+    // icons need to flip with in-app light/dark — the activity theme stays light.
+    val view = LocalView.current
+    LaunchedEffect(theme) {
+        val window = (view.context as? android.app.Activity)?.window ?: return@LaunchedEffect
+        WindowCompat.getInsetsController(window, view).apply {
+            val light = theme != ThemeMode.DARK
+            isAppearanceLightStatusBars = light
+            isAppearanceLightNavigationBars = light
+        }
+    }
 
     // Pull the newest cards and check for a newer app version whenever we land on
     // the deck list. Both are network calls that never block the UI.

@@ -50,7 +50,8 @@ sealed interface UpdateStatus {
     /** Installed app is current (or the check failed; both mean "nothing to do"). */
     data object UpToDate : UpdateStatus
 
-    data object Downloading : UpdateStatus
+    /** Downloading, with the fraction of bytes received so far (0..1). */
+    data class Downloading(val progress: Float) : UpdateStatus
     data class Downloaded(val file: File) : UpdateStatus
     data class Failed(val reason: String) : UpdateStatus
 }
@@ -102,9 +103,13 @@ class AppUpdater(private val context: Context) {
             null
         }
 
+        // A failed check must never discard a release we already know about: the banner
+        // is mid-download, and losing `release` here would unmount it.
+        val existing = _release.value
         val newer = info?.takeIf { it.versionCode > installedCode }
-        _release.value = newer
-        _status.value = if (newer != null) UpdateStatus.Available(newer) else UpdateStatus.UpToDate
+        _release.value = newer ?: existing
+        val known = _release.value
+        _status.value = if (known != null) UpdateStatus.Available(known) else UpdateStatus.UpToDate
     }
 
     private fun downloadManifest(): ReleaseInfo? {
@@ -135,7 +140,7 @@ class AppUpdater(private val context: Context) {
     /** Download the APK to the app's cache. Call from a coroutine. */
     suspend fun download(release: ReleaseInfo): UpdateStatus {
         return withContext(Dispatchers.IO) {
-            _status.value = UpdateStatus.Downloading
+            _status.value = UpdateStatus.Downloading(0f)
             try {
                 val dir = File(appContext.cacheDir, "downloads").apply { mkdirs() }
                 val file = File(dir, "bpsc-${release.versionCode}.apk")
@@ -155,8 +160,31 @@ class AppUpdater(private val context: Context) {
                     if (connection.responseCode != HttpURLConnection.HTTP_OK) {
                         return@withContext UpdateStatus.Failed("download failed").also { _status.value = it }
                     }
+                    // Copy by hand so the banner can show real progress: a 13 MB APK with
+                    // only a spinner looks like nothing is happening.
+                    val expected = try {
+                        connection.contentLengthLong.takeIf { it > 0 } ?: connection.getHeaderField("Content-Length")?.toLongOrNull() ?: 0L
+                    } catch (e: Exception) { 0L }
                     connection.inputStream.use { input ->
-                        file.outputStream().use { output -> input.copyTo(output) }
+                        file.outputStream().use { output ->
+                            val buffer = ByteArray(64 * 1024)
+                            var read = 0L
+                            var last = 0L
+                            while (true) {
+                                val n = input.read(buffer)
+                                if (n < 0) break
+                                output.write(buffer, 0, n)
+                                read += n
+                                // Update at most ~10 times a second; the flow does not need more.
+                                if (read - last > 1024 * 1024) {
+                                    last = read
+                                    if (expected > 0) {
+                                        _status.value = UpdateStatus.Downloading((read.toFloat() / expected).coerceIn(0f, 0.99f))
+                                    }
+                                }
+                            }
+                            _status.value = UpdateStatus.Downloading(0.99f)
+                        }
                     }
                 } finally {
                     connection.disconnect()

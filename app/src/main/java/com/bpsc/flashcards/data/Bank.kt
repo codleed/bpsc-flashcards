@@ -18,6 +18,9 @@ const val REMOTE_CARDS_URL: String = "https://bpsc-qbank.netlify.app/questions.j
 /** Synthetic deck that repeats every card; it must not be counted or searched twice. */
 const val MIXED_DECK_ID: Int = 0
 
+/** The ranked "most asked" deck. It is the deck worth seeing first, so it leads the home. */
+const val MOST_REPEATED_DECK_ID: Int = 24
+
 data class Card(
     val deckId: Int,
     val n: Int,
@@ -161,7 +164,7 @@ class Bank(context: Context) {
             "All $total cards, shuffled",
             "ALL",
             parsed.flatMap { it.cards },
-            titleUr = "آمیкс مشق",
+            titleUr = "آمیخ مشق",
             descUr = "تمام $total کارڈز، بے ترتیب",
             tagUr = "سب",
         )
