@@ -53,6 +53,10 @@ const deckMeta = {
   26: { title: "Nasirabad Panel B (Female)", desc: "Year of the Elephant, Aam-e-Huzn, hardware, SAARC", tag: "MIXED", titleUr: "نصیر آباد پینل بی (خاتون)", descUr: "عام الفیل، عام حزن، ہارڈویئر، سارک", tagUr: "مختلط" },
   27: { title: "Jhalmagsi Interview (Female)", desc: "Salat, Azaan, Balochistan districts, NFC, AI", tag: "MIXED", titleUr: "جھل مگسی انٹرویو (خاتون)", descUr: "نماز، اذان، بلوچستان کے اضلاع، این ایف سی، اے آئی", tagUr: "مختلط" },
   28: { title: "Zhob Panel — Namaz & GK", desc: "Salat meaning, Azaan translation, Taunsa, Faisalabad, search engines", tag: "GK", titleUr: "ژوب پینل — نماز اور جنرل نالج", descUr: "نماز کا مطلب، اذان کی ترجمہ، تونسہ، فیصل آباد، سرچ انجن", tagUr: "جنرل نالج" },
+  29: { title: "Zhob — Dost Muhammad (20 min)", desc: "Aqaid, fasting and Hajj, Constitution, IT fundamentals, cybersecurity", tag: "MIXED", titleUr: "ژوب — دوست محمد (20 منٹ)", descUr: "عقائد، روزہ اور حج، آئین، آئی ٹی بنیادی باتیں، سائبر سیکیورٹی", tagUr: "مختلط" },
+  30: { title: "Zhob — IT Female (GK Mix)", desc: "Hottest place, coastlines, Dhaka, Bay'at, Aqaba, RAM, AI", tag: "MIXED", titleUr: "ژوب — آئی ٹی خاتون (جنرل نالج)", descUr: "گرم ترین جگہ، ساحلی پٹی، ڈھاکہ، بیعت عقبہ، ریم، اے آئی", tagUr: "مختلط" },
+  31: { title: "Kharan — Fazal Karim (26 Nov)", desc: "Flipped classroom, Kharan schools and projects, geography, online teaching", tag: "KHARAN", titleUr: "خاران — فضل کریم (26 نومبر)", descUr: "فلیپڈ کلاس، خاران کے اسکول اور منصوبے، جغرافیہ، آن لائن تدریس", tagUr: "خاران" },
+  32: { title: "Zhob — Islamabad & Web Basics", desc: "Islamabad history, Sain Kamal Khan Sherani, Iqbal's address, HTTP/HTTPS", tag: "MIXED", titleUr: "ژوب — اسلام آباد اور ویب بنیادیں", descUr: "اسلام آباد کی تاریخ، سائیں کمال خان شیرانی، اقبال کا خطاب، ایچ ٹی ٹی پی/ایچ ٹی ٹی پی ایس", tagUr: "مختلط" },
   124: { title: "Kalat — Short Discussion", desc: "Arkan, Hijrat, Pakistan Movement, database, computer basics", tag: "MIXED", titleUr: "قلات — مختصر گفتگو", descUr: "ارکان، ہجرت، تحریک پاکستان، ڈیٹابیس، کمپیوٹر بنیادی باتیں", tagUr: "مختلط" },
 };
 
