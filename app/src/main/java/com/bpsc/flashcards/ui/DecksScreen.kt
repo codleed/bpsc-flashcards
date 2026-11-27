@@ -3,6 +3,7 @@ package com.bpsc.flashcards.ui
 import androidx.activity.compose.BackHandler
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.animateColorAsState
+import androidx.compose.animation.core.Animatable
 import androidx.compose.animation.core.Spring
 import androidx.compose.animation.core.animateDpAsState
 import androidx.compose.animation.core.spring
@@ -11,15 +12,21 @@ import androidx.compose.animation.expandHorizontally
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
 import androidx.compose.animation.shrinkHorizontally
+import androidx.compose.foundation.Image
+import androidx.compose.foundation.gestures.awaitEachGesture
+import androidx.compose.foundation.gestures.awaitFirstDown
+import androidx.compose.foundation.gestures.waitForUpOrCancellation
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.RowScope
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.fillMaxHeight
@@ -36,6 +43,7 @@ import androidx.compose.foundation.layout.windowInsetsPadding
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.selection.selectable
+import androidx.compose.foundation.selection.toggleable
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.BasicTextField
@@ -49,25 +57,30 @@ import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.focus.focusRequester
-import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.GraphicsLayerScope
 import androidx.compose.ui.graphics.SolidColor
+import androidx.compose.ui.graphics.luminance
 import androidx.compose.ui.graphics.drawscope.ContentDrawScope
+import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.platform.LocalSoftwareKeyboardController
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.semantics.Role
-import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.compose.ui.util.lerp
 import com.bpsc.flashcards.R
 import com.bpsc.flashcards.data.AppLang
 import com.bpsc.flashcards.data.CardsStatus
@@ -78,11 +91,11 @@ import com.kyant.backdrop.Backdrop
 import com.kyant.backdrop.backdrops.layerBackdrop
 import com.kyant.backdrop.backdrops.rememberLayerBackdrop
 import com.kyant.backdrop.drawBackdrop
-import com.kyant.backdrop.effects.blur
 import com.kyant.backdrop.effects.lens
 import com.kyant.backdrop.effects.vibrancy
 import com.kyant.backdrop.highlight.Highlight
 import com.kyant.backdrop.shadow.Shadow
+import kotlinx.coroutines.launch
 import com.bpsc.flashcards.data.MOST_REPEATED_DECK_ID
 import com.bpsc.flashcards.data.ReleaseInfo
 import com.bpsc.flashcards.data.ThemeMode
@@ -168,13 +181,16 @@ fun DecksScreen(
         ) {
             // The deck list (and the search / theme panes) is recorded into a
             // graphics layer so the nav can sample what is actually behind it:
-            // blur, refraction and colour lift all read from this one layer.
-            // The lambda stays stable across recompositions (including theme
-            // switches) so the layer keeps its coordinates and never blanks.
-            val paper = rememberUpdatedState(colors.paper)
+            // colour lift and lens refraction both read from this one
+            // layer. We draw the page background first, then the content, so
+            // the bar never samples transparent pixels (Backdrop "Glass
+            // Bottom Bar"). The lambda stays stable across recompositions
+            // (including theme switches) so the layer keeps its coordinates
+            // and never blanks.
+            val backgroundColor = rememberUpdatedState(colors.paper)
             val backdropDraw: ContentDrawScope.() -> Unit = remember {
                 {
-                    drawRect(paper.value)
+                    drawRect(backgroundColor.value)
                     drawContent()
                 }
             }
@@ -228,7 +244,7 @@ fun DecksScreen(
                     }
                 }
 
-                HomeNav(
+                GlassBottomBar(
                     selected = section.ordinal,
                     colors = colors,
                     backdrop = backdrop,
@@ -861,128 +877,181 @@ private val NavSlot = 84.dp
 /** The ink capsule's inset from its own rounded edge to the row of tabs. */
 private val NavInset = 8.dp
 
+/**
+ * Liquid-glass bottom bar (Backdrop "Glass Bottom Bar").
+ *
+ * The bar samples the [backdrop] recorded from the content underneath and
+ * redraws it through the app's own order — colour lift ⇒ lens
+ * refraction — with only a light tint for readability. No flat translucent
+ * fill, no hand-drawn sheen: the glass is the effect.
+ */
+/**
+ * The shared liquid-glass sliding bar used by BOTH the Home bottom navigation
+ * bar and the language/theme toggles. Clear glass, no tint; one travelling
+ * glass chip springs (dampingRatio 0.9 / MediumLow) to the selected slot.
+ * `slots` fill the row; `slotWidth` * slotCount sizes the capsule.
+ */
 @Composable
-private fun HomeNav(
+private fun GlassSlidingBar(
+    selected: Int,
+    slotCount: Int,
+    slotWidth: Dp,
+    backdrop: Backdrop,
+    barHeight: Dp = 64.dp,
+    inset: Dp = NavInset,
+    barCorner: Dp = 32.dp,
+    chipCorner: Dp = 19.dp,
+    barLensHeight: Dp = 16.dp,
+    barLensAmount: Dp = 32.dp,
+    chipLensHeight: Dp = 12.dp,
+    chipLensAmount: Dp = 18.dp,
+    // Press-to-scale (Backdrop interactive glass tutorial): when enabled, a
+    // press springs the glass to a slightly larger scale while `layerBlock`
+    // keeps the sampled backdrop correctly positioned (it does not scale).
+    // Default off ⇒ the bottom navigation bar rendering is unchanged.
+    pressToScale: Boolean = false,
+    modifier: Modifier = Modifier,
+    slots: @Composable RowScope.() -> Unit,
+) {
+    val slide by animateDpAsState(
+        targetValue = slotWidth * selected,
+        animationSpec = spring(dampingRatio = 0.9f, stiffness = Spring.StiffnessMediumLow),
+        label = "glass-slide",
+    )
+
+    // Same interaction + spring system as the interactive glass bottom bar:
+    // `Animatable` progress driven by `awaitEachGesture`, spring released back.
+    val animationScope = rememberCoroutineScope()
+    val progressAnimation = remember { Animatable(0f) }
+    val pressSpring = remember { spring(dampingRatio = 0.5f, stiffness = 300f, visibilityThreshold = 0.001f) }
+
+    // `layerBlock`, NOT `graphicsLayer`, applies the scale so the backdrop
+    // sampled through the glass stays put while only the glass surface scales.
+    val glassLayerBlock: (GraphicsLayerScope.() -> Unit)? =
+        if (pressToScale) {
+            {
+                val progress = progressAnimation.value
+                val maxScale = if (size.width > 0f) (size.width + 16f.dp.toPx()) / size.width else 1f
+                val scale = lerp(1f, maxScale, progress)
+                scaleX = scale
+                scaleY = scale
+            }
+        } else {
+            null
+        }
+
+    val pressModifier =
+        if (pressToScale) {
+            Modifier.pointerInput(animationScope) {
+                val animationSpec = pressSpring
+                awaitEachGesture {
+                    // press
+                    awaitFirstDown()
+                    animationScope.launch {
+                        progressAnimation.animateTo(1f, animationSpec)
+                    }
+                    // release
+                    waitForUpOrCancellation()
+                    animationScope.launch {
+                        progressAnimation.animateTo(0f, animationSpec)
+                    }
+                }
+            }
+        } else {
+            Modifier
+        }
+
+    Box(
+        modifier
+            .width(slotWidth * slotCount + inset * 2)
+            .height(barHeight)
+            .then(pressModifier),
+    ) {
+        // Track — clear liquid glass, no tint.
+        Box(
+            Modifier
+                .matchParentSize()
+                .drawBackdrop(
+                    backdrop = backdrop,
+                    shape = { RoundedCornerShape(barCorner) },
+                    effects = {
+                        vibrancy()
+                        lens(
+                            refractionHeight = barLensHeight.toPx(),
+                            refractionAmount = barLensAmount.toPx(),
+                            depthEffect = true,
+                            chromaticAberration = true,
+                        )
+                    },
+                    highlight = { Highlight(width = 1.dp, alpha = 0.55f) },
+                    shadow = {
+                        Shadow(
+                            radius = 22.dp,
+                            color = Color.Black.copy(alpha = 0.34f),
+                        )
+                    },
+                    layerBlock = glassLayerBlock,
+                ),
+        )
+        Box(Modifier.matchParentSize().padding(inset)) {
+            // One travelling glass chip, springs to the selected slot.
+            Box(
+                Modifier
+                    .offset(x = slide)
+                    .width(slotWidth)
+                    .fillMaxHeight(),
+            ) {
+                Box(
+                    Modifier
+                        .fillMaxSize()
+                        .padding(horizontal = 2.dp, vertical = 5.dp)
+                        .drawBackdrop(
+                            backdrop = backdrop,
+                            shape = { RoundedCornerShape(chipCorner) },
+                            effects = {
+                                vibrancy()
+                                lens(
+                                    refractionHeight = chipLensHeight.toPx(),
+                                    refractionAmount = chipLensAmount.toPx(),
+                                )
+                            },
+                            highlight = { Highlight(width = 1.dp, alpha = 0.8f) },
+                            shadow = null,
+                            layerBlock = glassLayerBlock,
+                        ),
+                )
+            }
+            Row(Modifier.fillMaxSize()) { slots() }
+        }
+    }
+}
+@Composable
+private fun GlassBottomBar(
     selected: Int,
     colors: PaperColors,
     backdrop: Backdrop,
     onSelect: (Int) -> Unit,
     modifier: Modifier = Modifier,
 ) {
-    // Three equal slots tile the 252dp interior exactly, so one indicator can
-    // glide left -> centre -> right without any reflow behind it.
-    val slide by animateDpAsState(
-        targetValue = NavSlot * selected,
-        animationSpec = spring(dampingRatio = 0.9f, stiffness = Spring.StiffnessMediumLow),
-        label = "nav-slide",
-    )
+    // Shared liquid-glass sliding bar; 3 slots tile 252dp + inset.
     Box(
         modifier
             .fillMaxWidth()
             .padding(bottom = 24.dp),
         contentAlignment = Alignment.Center,
     ) {
-        Box(
-            Modifier
-                .width(NavSlot * 3 + NavInset * 2)
-                .height(64.dp),
+        GlassSlidingBar(
+            selected = selected,
+            slotCount = 3,
+            slotWidth = NavSlot,
+            backdrop = backdrop,
         ) {
-            // The bar itself is a real pane of glass: it samples the recorded
-            // deck list underneath, blurs it, lifts its colour, and refracts it
-            // through the capsule's rounded edge. The ink tint is only a thin
-            // wash on top of that, so the list still moves through the bar.
-            Box(
-                Modifier
-                    .matchParentSize()
-                    .drawBackdrop(
-                        backdrop = backdrop,
-                        shape = { RoundedCornerShape(32.dp) },
-                        effects = {
-                            vibrancy()
-                            blur(14.dp.toPx())
-                            lens(
-                                refractionHeight = 20.dp.toPx(),
-                                refractionAmount = 30.dp.toPx(),
-                                depthEffect = true,
-                                chromaticAberration = true,
-                            )
-                        },
-                        highlight = { Highlight(width = 1.dp, alpha = 0.55f) },
-                        shadow = {
-                            Shadow(
-                                radius = 22.dp,
-                                color = Color.Black.copy(alpha = 0.34f),
-                            )
-                        },
-                        onDrawSurface = {
-                            drawRect(colors.navBg.copy(alpha = 0.70f))
-                            drawRect(
-                                Brush.verticalGradient(
-                                    0.0f to Color.White.copy(alpha = 0.10f),
-                                    0.45f to Color.Transparent,
-                                    1.0f to Color.Black.copy(alpha = 0.12f),
-                                )
-                            )
-                        },
-                    ),
-            )
-
-            Box(
-                Modifier
-                    .matchParentSize()
-                    .padding(NavInset),
-            ) {
-                // The travelling chip is a second, brighter pane of the same
-                // glass. It keeps its 84 x 48 slot while it slides, with 2dp
-                // either side of the 80dp pill and 5dp above and below, so the
-                // label never touches its edge.
-                Box(
-                    Modifier
-                        .offset(x = slide)
-                        .width(NavSlot)
-                        .fillMaxHeight(),
-                ) {
-                    Box(
-                        Modifier
-                            .fillMaxSize()
-                            .padding(horizontal = 2.dp, vertical = 5.dp)
-                            .drawBackdrop(
-                                backdrop = backdrop,
-                                shape = { RoundedCornerShape(19.dp) },
-                                effects = {
-                                    vibrancy()
-                                    blur(8.dp.toPx())
-                                    lens(
-                                        refractionHeight = 12.dp.toPx(),
-                                        refractionAmount = 18.dp.toPx(),
-                                    )
-                                },
-                                highlight = { Highlight(width = 1.dp, alpha = 0.8f) },
-                                shadow = null,
-                                onDrawSurface = {
-                                    drawRect(colors.navActive.copy(alpha = 0.90f))
-                                    drawRect(
-                                        Brush.verticalGradient(
-                                            0.0f to Color.White.copy(alpha = 0.45f),
-                                            0.55f to Color.White.copy(alpha = 0.05f),
-                                            1.0f to Color.Black.copy(alpha = 0.05f),
-                                        )
-                                    )
-                                },
-                            ),
-                    )
-                }
-
-                Row(Modifier.fillMaxSize()) {
-                    NavTab(R.drawable.ic_grid, "Decks", selected == 0, colors, Modifier.weight(1f)) { onSelect(0) }
-                    NavTab(R.drawable.ic_search, "Search", selected == 1, colors, Modifier.weight(1f)) { onSelect(1) }
-                    NavTab(R.drawable.ic_sliders, "Theme", selected == 2, colors, Modifier.weight(1f)) { onSelect(2) }
-                }
-            }
+            NavTab(R.drawable.ic_grid, "Decks", selected == 0, colors, Modifier.weight(1f)) { onSelect(0) }
+            NavTab(R.drawable.ic_search, "Search", selected == 1, colors, Modifier.weight(1f)) { onSelect(1) }
+            NavTab(R.drawable.ic_sliders, "Theme", selected == 2, colors, Modifier.weight(1f)) { onSelect(2) }
         }
     }
 }
-
 @Composable
 private fun NavTab(
     icon: Int,
@@ -994,8 +1063,15 @@ private fun NavTab(
 ) {
     // Hold the ink for a beat in both directions: it should not turn light while
     // the white pill is still underneath, nor arrive before the pill does.
+    // Dark theme: the selected tab's icon + label ink is white/whitish so it
+    // stays visible; inactive + light-theme ink are unchanged.
+    val darkSurface = colors.paper.luminance() < 0.5f
     val ink by animateColorAsState(
-        targetValue = if (active) colors.navActiveInk else colors.navIcon,
+        targetValue = if (active) {
+            if (darkSurface) Color.White else colors.navActiveInk
+        } else {
+            colors.navIcon
+        },
         animationSpec = tween(durationMillis = 240, delayMillis = 110),
         label = "nav-ink",
     )
@@ -1034,7 +1110,9 @@ private fun NavTab(
                 Text(
                     text = label,
                     style = PaperType.nav,
-                    color = colors.navActiveInk,
+                    // Dark theme: selected tab label is white/whitish; light
+                    // theme keeps navActiveInk.
+                    color = if (darkSurface) Color.White else colors.navActiveInk,
                     maxLines = 1,
                     softWrap = false,
                     overflow = TextOverflow.Visible,
@@ -1052,10 +1130,36 @@ private fun ThemeBody(
     onToggleLang: () -> Unit,
     onToggleTheme: () -> Unit,
 ) {
-    LazyColumn(
-        modifier = Modifier.fillMaxSize(),
-        contentPadding = PaddingValues(start = 24.dp, end = 24.dp, top = 28.dp, bottom = 124.dp),
-    ) {
+    // Floral background image (Pexels, free): faint, recorded into `backdrop`.
+    // The liquid-glass toggles are clear with no tint; the floral page gives
+    // the glass something to sit over and be read against.
+    //
+    // The toggles render INSIDE the screen-level `layerBackdrop`, so - exactly
+    // like the bottom bar - they must not sample a backdrop they are recorded
+    // into. `themeBackdrop` records only what sits BEHIND the toggles (page
+    // paper + floral image) with the same `rememberLayerBackdrop` +
+    // `layerBackdrop` pipeline the bottom navigation bar uses; no self-sampling.
+    val themeBackdropPaper = rememberUpdatedState(colors.paper)
+    val themeBackdropDraw: ContentDrawScope.() -> Unit = remember {
+        {
+            drawRect(themeBackdropPaper.value)
+            drawContent()
+        }
+    }
+    val themeBackdrop = rememberLayerBackdrop(onDraw = themeBackdropDraw)
+    Box(Modifier.fillMaxSize()) {
+        Box(Modifier.fillMaxSize().layerBackdrop(themeBackdrop)) {
+            Image(
+                painter = painterResource(R.drawable.floral_background),
+                contentDescription = null,
+                contentScale = ContentScale.Crop,
+                modifier = Modifier.fillMaxSize().alpha(0.40f),
+            )
+        }
+        LazyColumn(
+            modifier = Modifier.fillMaxSize(),
+            contentPadding = PaddingValues(start = 24.dp, end = 24.dp, top = 28.dp, bottom = 124.dp),
+        ) {
         item {
             Text("Preferences", style = PaperType.eyebrow, color = colors.muted)
             Spacer(Modifier.height(8.dp))
@@ -1066,12 +1170,13 @@ private fun ThemeBody(
             Spacer(Modifier.height(30.dp))
             Text("LANGUAGE", style = PaperType.micro, color = colors.muted)
             Spacer(Modifier.height(8.dp))
-            Segmented(
+            GlassToggle(
                 options = listOf("English", "اردو"),
-                selected = if (lang == AppLang.UR) 1 else 0,
+                checked = lang == AppLang.UR,
                 colors = colors,
-                onSelect = { index ->
-                    if ((index == 1) != (lang == AppLang.UR)) onToggleLang()
+                backdrop = themeBackdrop,
+                onCheckedChange = { on ->
+                    if (on != (lang == AppLang.UR)) onToggleLang()
                 },
             )
             Spacer(Modifier.height(10.dp))
@@ -1086,12 +1191,13 @@ private fun ThemeBody(
             Spacer(Modifier.height(26.dp))
             Text("APPEARANCE", style = PaperType.micro, color = colors.muted)
             Spacer(Modifier.height(8.dp))
-            Segmented(
+            GlassToggle(
                 options = listOf("Light", "Dark"),
-                selected = if (theme == ThemeMode.DARK) 1 else 0,
+                checked = theme == ThemeMode.DARK,
                 colors = colors,
-                onSelect = { index ->
-                    if ((index == 1) != (theme == ThemeMode.DARK)) onToggleTheme()
+                backdrop = themeBackdrop,
+                onCheckedChange = { on ->
+                    if (on != (theme == ThemeMode.DARK)) onToggleTheme()
                 },
             )
             Spacer(Modifier.height(10.dp))
@@ -1110,51 +1216,69 @@ private fun ThemeBody(
                 color = colors.muted,
             )
         }
+        }
     }
 }
 
+/**
+ * Liquid-glass ON/OFF switch rebuilt on the SAME [GlassSlidingBar] Liquid
+ * Glass component as the bottom navigation bar — identical `drawBackdrop`
+ * rendering (`vibrancy` ⇒ `lens`, `Highlight`, `Shadow`, clear no-tint glass),
+ * identical slide spring (dampingRatio 0.9 / StiffnessMediumLow) and ink
+ * animation, plus the tutorial's press-to-scale interaction ([Animatable] +
+ * spring + `awaitEachGesture` + `layerBlock`, `pressToScale = true`).
+ *
+ * Two slots keep the current labels; `checked` is ON. Semantics are
+ * [Role.Switch] toggleables (not radio), tapping flips state, layout,
+ * captions and behaviour are unchanged. Samples a real `rememberLayerBackdrop`
+ * of what is behind it — never a backdrop it is recorded into.
+ */
 @Composable
-private fun Segmented(
-    options: List<String>,
-    selected: Int,
+private fun GlassToggle(
+    options: List<String>, // exactly two: OFF label, ON label
+    checked: Boolean,
     colors: PaperColors,
-    onSelect: (Int) -> Unit,
+    backdrop: Backdrop,
+    onCheckedChange: (Boolean) -> Unit,
 ) {
-    Row(
-        Modifier
-            .fillMaxWidth()
-            .height(44.dp)
-            .clip(RoundedCornerShape(22.dp))
-            // The track has to read as an object: `paper` is the page behind it,
-            // so a paper track vanishes. Sand + a hairline gives it an edge in
-            // both themes without inventing a colour outside this screen's set.
-            .background(colors.sand)
-            .border(1.dp, colors.muted.copy(alpha = 0.35f), RoundedCornerShape(22.dp))
-            .padding(4.dp),
-        horizontalArrangement = Arrangement.spacedBy(4.dp),
-    ) {
-        options.forEachIndexed { index, label ->
-            val active = index == selected
-            Box(
-                Modifier
-                    .weight(1f)
-                    .fillMaxHeight()
-                    .clip(RoundedCornerShape(18.dp))
-                    .background(if (active) colors.ink else Color.Transparent)
-                    .selectable(
-                        selected = active,
-                        role = Role.RadioButton,
-                        interactionSource = remember { MutableInteractionSource() },
-                        indication = null,
-                        onClick = { onSelect(index) },
-                    ),
-                contentAlignment = Alignment.Center,
-            ) {
-                Text(
-                    label,
-                    style = PaperType.count.copy(fontWeight = FontWeight.SemiBold, fontSize = 14.sp),
-                    color = if (active) colors.paper else colors.muted,
+    BoxWithConstraints(Modifier.fillMaxWidth(), contentAlignment = Alignment.Center) {
+        val slotWidth = ((maxWidth - NavInset * 2) / 2).coerceAtLeast(0.dp)
+        GlassSlidingBar(
+            selected = if (checked) 1 else 0,
+            slotCount = 2,
+            slotWidth = slotWidth,
+            backdrop = backdrop,
+            pressToScale = true,
+        ) {
+            options.forEachIndexed { index, label ->
+                val on = index == 1
+                val active = on == checked
+                // Same ink animation as GlassBottomBar's NavTab.
+                val ink by animateColorAsState(
+                    targetValue = if (active) colors.navActiveInk else colors.navIcon,
+                    animationSpec = tween(durationMillis = 240, delayMillis = 110),
+                    label = "toggle-ink",
                 )
+                Box(
+                    Modifier
+                        .weight(1f)
+                        .fillMaxHeight()
+                        .clip(RoundedCornerShape(21.dp))
+                        .toggleable(
+                            value = active,
+                            role = Role.Switch,
+                            interactionSource = remember { MutableInteractionSource() },
+                            indication = null,
+                            onValueChange = { onCheckedChange(on) },
+                        ),
+                    contentAlignment = Alignment.Center,
+                ) {
+                    Text(
+                        label,
+                        style = PaperType.nav.copy(fontSize = 14.sp),
+                        color = ink,
+                    )
+                }
             }
         }
     }

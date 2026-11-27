@@ -95,7 +95,7 @@ dependencies {
     implementation("androidx.compose.ui:ui-tooling-preview")
     debugImplementation("androidx.compose.ui:ui-tooling")
 
-    // Real backdrop sampling for the liquid-glass nav: blur + lens + vibrancy
+    // Real backdrop sampling for the liquid-glass nav: lens + vibrancy
     // drawn from the deck list scrolling underneath the bar.
     implementation("io.github.kyant0:backdrop:1.0.1")
 }

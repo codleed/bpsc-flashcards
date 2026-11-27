@@ -57,6 +57,7 @@ const deckMeta = {
   30: { title: "Zhob — IT Female (GK Mix)", desc: "Hottest place, coastlines, Dhaka, Bay'at, Aqaba, RAM, AI", tag: "MIXED", titleUr: "ژوب — آئی ٹی خاتون (جنرل نالج)", descUr: "گرم ترین جگہ، ساحلی پٹی، ڈھاکہ، بیعت عقبہ، ریم، اے آئی", tagUr: "مختلط" },
   31: { title: "Kharan — Fazal Karim (26 Nov)", desc: "Flipped classroom, Kharan schools and projects, geography, online teaching", tag: "KHARAN", titleUr: "خاران — فضل کریم (26 نومبر)", descUr: "فلیپڈ کلاس، خاران کے اسکول اور منصوبے، جغرافیہ، آن لائن تدریس", tagUr: "خاران" },
   32: { title: "Zhob — Islamabad & Web Basics", desc: "Islamabad history, Sain Kamal Khan Sherani, Iqbal's address, HTTP/HTTPS", tag: "MIXED", titleUr: "ژوب — اسلام آباد اور ویب بنیادیں", descUr: "اسلام آباد کی تاریخ، سائیں کمال خان شیرانی، اقبال کا خطاب، ایچ ٹی ٹی پی/ایچ ٹی ٹی پی ایس", tagUr: "مختلط" },
+  33: { title: "Kalat — 27 Nov (Ghulam Ali, Saboor)", desc: "Wikipedia, NGP, Koh-e-Sulaiman, Kirthar, IT pedagogy, agriculture", tag: "KALAT", titleUr: "قلات — 27 نومبر (غلام علی، صبور)", descUr: "ویکیپیڈیا، این جی پی، کوہ سلیمان، پہاڑی سلسلے، آئی ٹی پیڈاگوجی، زراعت", tagUr: "قلات" },
   124: { title: "Kalat — Short Discussion", desc: "Arkan, Hijrat, Pakistan Movement, database, computer basics", tag: "MIXED", titleUr: "قلات — مختصر گفتگو", descUr: "ارکان، ہجرت، تحریک پاکستان، ڈیٹابیس، کمپیوٹر بنیادی باتیں", tagUr: "مختلط" },
 };
 

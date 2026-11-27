@@ -4,6 +4,7 @@ import androidx.compose.animation.core.FastOutSlowInEasing
 import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.core.snap
 import androidx.compose.animation.core.tween
+import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
@@ -35,12 +36,16 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.shadow
+import androidx.compose.ui.graphics.drawscope.ContentDrawScope
 import androidx.compose.ui.graphics.graphicsLayer
+import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.style.TextAlign
@@ -53,6 +58,13 @@ import com.bpsc.flashcards.data.CardStatus
 import com.bpsc.flashcards.data.Deck
 import com.bpsc.flashcards.ui.theme.InkType
 import com.bpsc.flashcards.ui.theme.warmAccent
+import com.kyant.backdrop.Backdrop
+import com.kyant.backdrop.backdrops.layerBackdrop
+import com.kyant.backdrop.backdrops.rememberLayerBackdrop
+import com.kyant.backdrop.drawBackdrop
+import com.kyant.backdrop.effects.blur
+import com.kyant.backdrop.effects.lens
+import com.kyant.backdrop.effects.vibrancy
 import kotlin.random.Random
 
 @Composable
@@ -101,7 +113,30 @@ fun StudyScreen(
     val againInDeck = deck.cards.count { states[it.id] == CardStatus.AGAIN }
 
     Scaffold(containerColor = MaterialTheme.colorScheme.background) { insets ->
-        Column(Modifier.fillMaxSize().padding(insets)) {
+        // Liquid-glass flashcard (Backdrop "Glass Bottom Sheet"): record the
+        // page - background drawn first, then content - into a backdrop the
+        // card samples. The stable lambda keeps coordinates across recomposes.
+        val backgroundColor = rememberUpdatedState(MaterialTheme.colorScheme.background)
+        val backdropDraw: ContentDrawScope.() -> Unit = remember {
+            {
+                drawRect(backgroundColor.value)
+                drawContent()
+            }
+        }
+        val backdrop = rememberLayerBackdrop(onDraw = backdropDraw)
+        Box(Modifier.fillMaxSize().padding(insets)) {
+            // Recorded page layer; the glass card is NOT part of it (no glass-on-glass loop).
+            // A faint floral backdrop (Pexels, free) gives the liquid glass
+            // real colour + detail to refract, and is recorded into `backdrop`.
+            Box(Modifier.fillMaxSize().layerBackdrop(backdrop)) {
+                Image(
+                    painter = painterResource(R.drawable.floral_background),
+                    contentDescription = null,
+                    contentScale = ContentScale.Crop,
+                    modifier = Modifier.fillMaxSize().alpha(0.18f),
+                )
+            }
+            Column(Modifier.fillMaxSize()) {
             Row(
                 modifier = Modifier.fillMaxWidth().padding(start = 4.dp, end = 20.dp, top = 4.dp),
                 verticalAlignment = Alignment.CenterVertically,
@@ -184,6 +219,7 @@ fun StudyScreen(
                         flipped = flipped,
                         reduceMotion = reduceMotion,
                         strings = strings,
+                        backdrop = backdrop,
                         onFlip = { flipped = !flipped },
                     )
                 }
@@ -217,6 +253,7 @@ fun StudyScreen(
                     },
                 )
             }
+            }
         }
     }
 }
@@ -242,6 +279,7 @@ private fun FlipCard(
     flipped: Boolean,
     reduceMotion: Boolean,
     strings: AppStrings,
+    backdrop: Backdrop,
     onFlip: () -> Unit,
 ) {
     val rotation by animateFloatAsState(
@@ -265,7 +303,7 @@ private fun FlipCard(
             ),
     ) {
         if (rotation <= 90f) {
-            CardFace {
+            CardFace(backdrop) {
                 Column(
                     Modifier.fillMaxSize().padding(28.dp),
                     horizontalAlignment = Alignment.CenterHorizontally,
@@ -293,7 +331,7 @@ private fun FlipCard(
             }
         } else {
             Box(Modifier.fillMaxSize().graphicsLayer { rotationY = 180f }) {
-                CardFace {
+                CardFace(backdrop) {
                     Column(
                         Modifier.fillMaxSize().padding(28.dp),
                         horizontalAlignment = Alignment.CenterHorizontally,
@@ -318,15 +356,33 @@ private fun FlipCard(
     }
 }
 
+/**
+ * Liquid-glass flashcard (Backdrop "Glass Bottom Sheet").
+ *
+ * Samples the page [backdrop], colour-lifts it, then bends it through the
+ * card's rounded edge; only a light wash of the card surface on top. The
+ * flat fill, border and drop shadow are replaced by the glass itself.
+ */
 @Composable
-private fun CardFace(content: @Composable () -> Unit) {
+private fun CardFace(backdrop: Backdrop, content: @Composable () -> Unit) {
+    val shape = MaterialTheme.shapes.medium
+    val surfaceColor = MaterialTheme.colorScheme.surface
     Box(
         Modifier
             .fillMaxSize()
-            .shadow(6.dp, MaterialTheme.shapes.medium)
-            .clip(MaterialTheme.shapes.medium)
-            .background(MaterialTheme.colorScheme.surface)
-            .border(1.dp, MaterialTheme.colorScheme.outlineVariant, MaterialTheme.shapes.medium),
+            .drawBackdrop(
+                backdrop = backdrop,
+                shape = { shape },
+                effects = {
+                    vibrancy()
+                    lens(
+                        refractionHeight = 24.dp.toPx(),
+                        refractionAmount = 48.dp.toPx(),
+                        depthEffect = true,
+                    )
+                },
+                // no onDrawSurface: clear glass, no tint
+            ),
     ) {
         content()
     }
