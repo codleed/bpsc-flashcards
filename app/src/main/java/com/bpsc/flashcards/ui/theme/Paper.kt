@@ -209,4 +209,10 @@ object PaperType {
         fontSize = 14.sp,
         lineHeight = 20.sp,
     )
+    val nav = TextStyle(
+        fontFamily = Instrument,
+        fontWeight = FontWeight.SemiBold,
+        fontSize = 13.sp,
+        lineHeight = 16.sp,
+    )
 }

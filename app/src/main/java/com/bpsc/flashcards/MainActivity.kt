@@ -18,6 +18,7 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.toArgb
 import androidx.compose.ui.platform.LocalView
 import androidx.core.view.WindowCompat
 import com.bpsc.flashcards.data.AppLang
@@ -30,6 +31,8 @@ import com.bpsc.flashcards.data.UpdateStatus
 import com.bpsc.flashcards.ui.DecksScreen
 import com.bpsc.flashcards.ui.StudyScreen
 import com.bpsc.flashcards.ui.theme.BpscFlashTheme
+import com.bpsc.flashcards.ui.theme.DarkPaper
+import com.bpsc.flashcards.ui.theme.LightPaper
 import kotlinx.coroutines.launch
 
 class MainActivity : ComponentActivity() {
@@ -100,6 +103,10 @@ fun AppRoot(
             isAppearanceLightStatusBars = light
             isAppearanceLightNavigationBars = light
         }
+        // targetSdk 35 draws edge-to-edge; match the 3-button nav strip to the
+        // home paper instead of leaving the light theme's grey strip under a dark app.
+        window.navigationBarColor = (if (theme == ThemeMode.DARK) DarkPaper.paper else LightPaper.paper).toArgb()
+        window.isNavigationBarContrastEnforced = false
     }
 
     // Pull the newest cards and check for a newer app version whenever we land on

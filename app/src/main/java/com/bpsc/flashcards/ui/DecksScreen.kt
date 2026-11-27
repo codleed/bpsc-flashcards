@@ -1,6 +1,16 @@
 package com.bpsc.flashcards.ui
 
 import androidx.activity.compose.BackHandler
+import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.animation.animateColorAsState
+import androidx.compose.animation.core.Spring
+import androidx.compose.animation.core.animateDpAsState
+import androidx.compose.animation.core.spring
+import androidx.compose.animation.core.tween
+import androidx.compose.animation.expandHorizontally
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.fadeOut
+import androidx.compose.animation.shrinkHorizontally
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
@@ -16,6 +26,7 @@ import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.safeDrawing
 import androidx.compose.foundation.layout.size
@@ -24,6 +35,7 @@ import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.layout.windowInsetsPadding
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.selection.selectable
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.BasicTextField
@@ -37,16 +49,20 @@ import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.focus.focusRequester
+import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.SolidColor
+import androidx.compose.ui.graphics.drawscope.ContentDrawScope
 import androidx.compose.ui.platform.LocalSoftwareKeyboardController
 import androidx.compose.ui.res.painterResource
+import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.Dp
@@ -58,11 +74,19 @@ import com.bpsc.flashcards.data.CardsStatus
 import com.bpsc.flashcards.data.CardStatus
 import com.bpsc.flashcards.data.Deck
 import com.bpsc.flashcards.data.MIXED_DECK_ID
+import com.kyant.backdrop.Backdrop
+import com.kyant.backdrop.backdrops.layerBackdrop
+import com.kyant.backdrop.backdrops.rememberLayerBackdrop
+import com.kyant.backdrop.drawBackdrop
+import com.kyant.backdrop.effects.blur
+import com.kyant.backdrop.effects.lens
+import com.kyant.backdrop.effects.vibrancy
+import com.kyant.backdrop.highlight.Highlight
+import com.kyant.backdrop.shadow.Shadow
 import com.bpsc.flashcards.data.MOST_REPEATED_DECK_ID
 import com.bpsc.flashcards.data.ReleaseInfo
 import com.bpsc.flashcards.data.ThemeMode
 import com.bpsc.flashcards.data.UpdateStatus
-import com.bpsc.flashcards.ui.theme.Instrument
 import com.bpsc.flashcards.ui.theme.LocalPaperColors
 import com.bpsc.flashcards.ui.theme.PaperColors
 import com.bpsc.flashcards.ui.theme.PaperType
@@ -81,7 +105,7 @@ import java.util.Locale
  * inventing a second one.
  */
 
-private enum class HomeSection { DECKS, SEARCH }
+private enum class HomeSection { DECKS, SEARCH, THEME }
 
 private fun count(n: Int): String = NumberFormat.getIntegerInstance(Locale.US).format(n)
 
@@ -124,11 +148,15 @@ fun DecksScreen(
     val colors = rememberPaperColors(dark = theme == ThemeMode.DARK)
     var section by remember { mutableStateOf(HomeSection.DECKS) }
     var query by remember { mutableStateOf("") }
-    var settingsOpen by remember { mutableStateOf(false) }
 
-    BackHandler(enabled = section == HomeSection.SEARCH) {
+    BackHandler(enabled = section != HomeSection.DECKS) {
         section = HomeSection.DECKS
         query = ""
+    }
+
+    val keyboard = LocalSoftwareKeyboardController.current
+    LaunchedEffect(section) {
+        if (section != HomeSection.SEARCH) keyboard?.hide()
     }
 
     CompositionLocalProvider(LocalPaperColors provides colors) {
@@ -138,62 +166,84 @@ fun DecksScreen(
                 .background(colors.paper),
             contentAlignment = Alignment.TopCenter,
         ) {
+            // The deck list (and the search / theme panes) is recorded into a
+            // graphics layer so the nav can sample what is actually behind it:
+            // blur, refraction and colour lift all read from this one layer.
+            // The lambda stays stable across recompositions (including theme
+            // switches) so the layer keeps its coordinates and never blanks.
+            val paper = rememberUpdatedState(colors.paper)
+            val backdropDraw: ContentDrawScope.() -> Unit = remember {
+                {
+                    drawRect(paper.value)
+                    drawContent()
+                }
+            }
+            val backdrop = rememberLayerBackdrop(onDraw = backdropDraw)
+
             Box(
                 Modifier
                     .windowInsetsPadding(WindowInsets.safeDrawing)
                     .widthIn(max = 460.dp)
                     .fillMaxHeight(),
             ) {
-                if (section == HomeSection.SEARCH) {
-                    SearchBody(
-                        decks = decks,
-                        states = states,
-                        lang = lang,
-                        query = query,
-                        onQueryChange = { query = it },
-                        onOpenCard = onOpenCard,
-                    )
-                } else {
-                    HomeBody(
-                        decks = decks,
-                        states = states,
-                        cardsStatus = cardsStatus,
-                        lang = lang,
-                        strings = strings,
-                        showUpdate = showUpdate,
-                        updateRelease = updateRelease,
-                        updateStatus = updateStatus,
-                        onDownloadUpdate = onDownloadUpdate,
-                        onInstallUpdate = onInstallUpdate,
-                        onDismissUpdate = onDismissUpdate,
-                        onRefresh = onRefresh,
-                        onOpenDeck = onOpenDeck,
-                        onOpenCard = onOpenCard,
-                    )
+                Box(
+                    Modifier
+                        .fillMaxSize()
+                        .layerBackdrop(backdrop),
+                ) {
+                    when (section) {
+                        HomeSection.DECKS -> HomeBody(
+                            decks = decks,
+                            states = states,
+                            cardsStatus = cardsStatus,
+                            lang = lang,
+                            strings = strings,
+                            showUpdate = showUpdate,
+                            updateRelease = updateRelease,
+                            updateStatus = updateStatus,
+                            onDownloadUpdate = onDownloadUpdate,
+                            onInstallUpdate = onInstallUpdate,
+                            onDismissUpdate = onDismissUpdate,
+                            onRefresh = onRefresh,
+                            onOpenDeck = onOpenDeck,
+                            onOpenCard = onOpenCard,
+                        )
+
+                        HomeSection.SEARCH -> SearchBody(
+                            decks = decks,
+                            states = states,
+                            lang = lang,
+                            query = query,
+                            onQueryChange = { query = it },
+                            onOpenCard = onOpenCard,
+                        )
+
+                        HomeSection.THEME -> ThemeBody(
+                            lang = lang,
+                            theme = theme,
+                            colors = colors,
+                            onToggleLang = onToggleLang,
+                            onToggleTheme = onToggleTheme,
+                        )
+                    }
                 }
 
                 HomeNav(
-                    section = section,
+                    selected = section.ordinal,
                     colors = colors,
-                    onDecks = {
-                        section = HomeSection.DECKS
-                        query = ""
+                    backdrop = backdrop,
+                    onSelect = { index ->
+                        when (index) {
+                            0 -> {
+                                section = HomeSection.DECKS
+                                query = ""
+                            }
+                            1 -> section = HomeSection.SEARCH
+                            else -> section = HomeSection.THEME
+                        }
                     },
-                    onSearch = { section = HomeSection.SEARCH },
-                    onSettings = { settingsOpen = true },
                     modifier = Modifier.align(Alignment.BottomCenter),
                 )
-
-                if (settingsOpen) {
-                    SettingsSheet(
-                        lang = lang,
-                        theme = theme,
-                        colors = colors,
-                        onToggleLang = onToggleLang,
-                        onToggleTheme = onToggleTheme,
-                        onDismiss = { settingsOpen = false },
-                    )
-                }
             }
         }
     }
@@ -805,142 +855,215 @@ private fun SearchRow(hit: SearchHit, lang: AppLang, onClick: () -> Unit) {
 
 // ---------------------------------------------------------------- nav & settings
 
+/** One tab's share of the ink capsule: 252dp interior / 3 slots. */
+private val NavSlot = 84.dp
+
+/** The ink capsule's inset from its own rounded edge to the row of tabs. */
+private val NavInset = 8.dp
+
 @Composable
 private fun HomeNav(
-    section: HomeSection,
+    selected: Int,
     colors: PaperColors,
-    onDecks: () -> Unit,
-    onSearch: () -> Unit,
-    onSettings: () -> Unit,
+    backdrop: Backdrop,
+    onSelect: (Int) -> Unit,
     modifier: Modifier = Modifier,
 ) {
+    // Three equal slots tile the 252dp interior exactly, so one indicator can
+    // glide left -> centre -> right without any reflow behind it.
+    val slide by animateDpAsState(
+        targetValue = NavSlot * selected,
+        animationSpec = spring(dampingRatio = 0.9f, stiffness = Spring.StiffnessMediumLow),
+        label = "nav-slide",
+    )
     Box(
         modifier
             .fillMaxWidth()
             .padding(bottom = 24.dp),
         contentAlignment = Alignment.Center,
     ) {
-        Row(
+        Box(
             Modifier
-                .width(232.dp)
-                .height(64.dp)
-                .clip(RoundedCornerShape(32.dp))
-                .background(colors.navBg)
-                .padding(8.dp),
-            verticalAlignment = Alignment.CenterVertically,
-            horizontalArrangement = Arrangement.spacedBy(4.dp),
+                .width(NavSlot * 3 + NavInset * 2)
+                .height(64.dp),
         ) {
-            if (section == HomeSection.DECKS) {
-                NavPill("Decks", R.drawable.ic_grid, colors, onClick = {})
-                NavGhost(R.drawable.ic_search, "Search questions", colors, onClick = onSearch)
-            } else {
-                NavPill("Search", R.drawable.ic_search, colors, onClick = {})
-                NavGhost(R.drawable.ic_grid, "Back to decks", colors, onClick = onDecks)
+            // The bar itself is a real pane of glass: it samples the recorded
+            // deck list underneath, blurs it, lifts its colour, and refracts it
+            // through the capsule's rounded edge. The ink tint is only a thin
+            // wash on top of that, so the list still moves through the bar.
+            Box(
+                Modifier
+                    .matchParentSize()
+                    .drawBackdrop(
+                        backdrop = backdrop,
+                        shape = { RoundedCornerShape(32.dp) },
+                        effects = {
+                            vibrancy()
+                            blur(14.dp.toPx())
+                            lens(
+                                refractionHeight = 20.dp.toPx(),
+                                refractionAmount = 30.dp.toPx(),
+                                depthEffect = true,
+                                chromaticAberration = true,
+                            )
+                        },
+                        highlight = { Highlight(width = 1.dp, alpha = 0.55f) },
+                        shadow = {
+                            Shadow(
+                                radius = 22.dp,
+                                color = Color.Black.copy(alpha = 0.34f),
+                            )
+                        },
+                        onDrawSurface = {
+                            drawRect(colors.navBg.copy(alpha = 0.70f))
+                            drawRect(
+                                Brush.verticalGradient(
+                                    0.0f to Color.White.copy(alpha = 0.10f),
+                                    0.45f to Color.Transparent,
+                                    1.0f to Color.Black.copy(alpha = 0.12f),
+                                )
+                            )
+                        },
+                    ),
+            )
+
+            Box(
+                Modifier
+                    .matchParentSize()
+                    .padding(NavInset),
+            ) {
+                // The travelling chip is a second, brighter pane of the same
+                // glass. It keeps its 84 x 48 slot while it slides, with 2dp
+                // either side of the 80dp pill and 5dp above and below, so the
+                // label never touches its edge.
+                Box(
+                    Modifier
+                        .offset(x = slide)
+                        .width(NavSlot)
+                        .fillMaxHeight(),
+                ) {
+                    Box(
+                        Modifier
+                            .fillMaxSize()
+                            .padding(horizontal = 2.dp, vertical = 5.dp)
+                            .drawBackdrop(
+                                backdrop = backdrop,
+                                shape = { RoundedCornerShape(19.dp) },
+                                effects = {
+                                    vibrancy()
+                                    blur(8.dp.toPx())
+                                    lens(
+                                        refractionHeight = 12.dp.toPx(),
+                                        refractionAmount = 18.dp.toPx(),
+                                    )
+                                },
+                                highlight = { Highlight(width = 1.dp, alpha = 0.8f) },
+                                shadow = null,
+                                onDrawSurface = {
+                                    drawRect(colors.navActive.copy(alpha = 0.90f))
+                                    drawRect(
+                                        Brush.verticalGradient(
+                                            0.0f to Color.White.copy(alpha = 0.45f),
+                                            0.55f to Color.White.copy(alpha = 0.05f),
+                                            1.0f to Color.Black.copy(alpha = 0.05f),
+                                        )
+                                    )
+                                },
+                            ),
+                    )
+                }
+
+                Row(Modifier.fillMaxSize()) {
+                    NavTab(R.drawable.ic_grid, "Decks", selected == 0, colors, Modifier.weight(1f)) { onSelect(0) }
+                    NavTab(R.drawable.ic_search, "Search", selected == 1, colors, Modifier.weight(1f)) { onSelect(1) }
+                    NavTab(R.drawable.ic_sliders, "Theme", selected == 2, colors, Modifier.weight(1f)) { onSelect(2) }
+                }
             }
-            NavGhost(R.drawable.ic_sliders, "Language and theme", colors, onClick = onSettings)
         }
     }
 }
 
 @Composable
-private fun NavPill(label: String, icon: Int, colors: PaperColors, onClick: () -> Unit) {
+private fun NavTab(
+    icon: Int,
+    label: String,
+    active: Boolean,
+    colors: PaperColors,
+    modifier: Modifier = Modifier,
+    onClick: () -> Unit,
+) {
+    // Hold the ink for a beat in both directions: it should not turn light while
+    // the white pill is still underneath, nor arrive before the pill does.
+    val ink by animateColorAsState(
+        targetValue = if (active) colors.navActiveInk else colors.navIcon,
+        animationSpec = tween(durationMillis = 240, delayMillis = 110),
+        label = "nav-ink",
+    )
     Row(
-        Modifier
-            .width(112.dp)
-            .height(48.dp)
-            .clip(RoundedCornerShape(24.dp))
-            .background(colors.navActive)
-            .clickable(onClick = onClick),
+        modifier
+            .fillMaxHeight()
+            .clip(RoundedCornerShape(21.dp))
+            .selectable(
+                selected = active,
+                role = Role.Tab,
+                interactionSource = remember { MutableInteractionSource() },
+                indication = null,
+                onClick = onClick,
+            ),
         horizontalArrangement = Arrangement.Center,
         verticalAlignment = Alignment.CenterVertically,
     ) {
         Icon(
             painter = painterResource(icon),
             contentDescription = null,
-            tint = colors.navActiveInk,
-            modifier = Modifier.size(20.dp),
+            tint = ink,
+            modifier = Modifier.size(16.dp),
         )
-        Spacer(Modifier.width(8.dp))
-        Text(
-            label,
-            style = PaperType.body.copy(fontFamily = Instrument, fontWeight = FontWeight.SemiBold, fontSize = 14.sp),
-            color = colors.navActiveInk,
-        )
+        // Only the tab under the glider spells its name. The slot keeps its
+        // 72dp width while the label is there, so the pill never has to move
+        // anything around it.
+        AnimatedVisibility(
+            visible = active,
+            enter = fadeIn(tween(durationMillis = 200, delayMillis = 120)) +
+                expandHorizontally(expandFrom = Alignment.Start, animationSpec = tween(220)),
+            exit = fadeOut(tween(durationMillis = 90)) +
+                shrinkHorizontally(shrinkTowards = Alignment.Start, animationSpec = tween(140)),
+        ) {
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Spacer(Modifier.width(5.dp))
+                Text(
+                    text = label,
+                    style = PaperType.nav,
+                    color = colors.navActiveInk,
+                    maxLines = 1,
+                    softWrap = false,
+                    overflow = TextOverflow.Visible,
+                )
+            }
+        }
     }
 }
 
 @Composable
-private fun NavGhost(icon: Int, description: String, colors: PaperColors, onClick: () -> Unit) {
-    Box(
-        Modifier
-            .size(48.dp)
-            .clip(CircleShape)
-            .clickable(onClick = onClick),
-        contentAlignment = Alignment.Center,
-    ) {
-        Icon(
-            painter = painterResource(icon),
-            contentDescription = description,
-            tint = colors.navIcon,
-            modifier = Modifier.size(22.dp),
-        )
-    }
-}
-
-@Composable
-private fun SettingsSheet(
+private fun ThemeBody(
     lang: AppLang,
     theme: ThemeMode,
     colors: PaperColors,
     onToggleLang: () -> Unit,
     onToggleTheme: () -> Unit,
-    onDismiss: () -> Unit,
 ) {
-    val swallow = remember { MutableInteractionSource() }
-    Box(
-        Modifier
-            .fillMaxSize()
-            .clickable(interactionSource = swallow, indication = null, onClick = onDismiss)
-            .background(Color(0x66181816)),
-        contentAlignment = Alignment.BottomCenter,
+    LazyColumn(
+        modifier = Modifier.fillMaxSize(),
+        contentPadding = PaddingValues(start = 24.dp, end = 24.dp, top = 28.dp, bottom = 124.dp),
     ) {
-        Column(
-            Modifier
-                .fillMaxWidth()
-                .clip(RoundedCornerShape(topStart = 28.dp, topEnd = 28.dp))
-                .background(colors.sand)
-                .clickable(
-                    interactionSource = remember { MutableInteractionSource() },
-                    indication = null,
-                    onClick = {},
-                )
-                .padding(start = 24.dp, end = 24.dp, top = 22.dp, bottom = 28.dp),
-        ) {
-            Row(verticalAlignment = Alignment.CenterVertically) {
-                Text(
-                    "Language & theme",
-                    style = PaperType.featuredTitle.copy(fontSize = 24.sp, lineHeight = 28.sp),
-                    color = colors.ink,
-                    modifier = Modifier.weight(1f),
-                )
-                Box(
-                    Modifier
-                        .size(36.dp)
-                        .clip(CircleShape)
-                        .background(colors.paper)
-                        .clickable(onClick = onDismiss),
-                    contentAlignment = Alignment.Center,
-                ) {
-                    Icon(
-                        painter = painterResource(R.drawable.ic_close),
-                        contentDescription = "Close",
-                        tint = colors.muted,
-                        modifier = Modifier.size(16.dp),
-                    )
-                }
-            }
+        item {
+            Text("Preferences", style = PaperType.eyebrow, color = colors.muted)
+            Spacer(Modifier.height(8.dp))
+            Text("Language & theme", style = PaperType.title, color = colors.ink)
+        }
 
-            Spacer(Modifier.height(22.dp))
+        item {
+            Spacer(Modifier.height(30.dp))
             Text("LANGUAGE", style = PaperType.micro, color = colors.muted)
             Spacer(Modifier.height(8.dp))
             Segmented(
@@ -951,8 +1074,16 @@ private fun SettingsSheet(
                     if ((index == 1) != (lang == AppLang.UR)) onToggleLang()
                 },
             )
+            Spacer(Modifier.height(10.dp))
+            Text(
+                "Urdu changes the card text only; the app's own labels stay English.",
+                style = PaperType.small,
+                color = colors.muted,
+            )
+        }
 
-            Spacer(Modifier.height(20.dp))
+        item {
+            Spacer(Modifier.height(26.dp))
             Text("APPEARANCE", style = PaperType.micro, color = colors.muted)
             Spacer(Modifier.height(8.dp))
             Segmented(
@@ -963,19 +1094,21 @@ private fun SettingsSheet(
                     if ((index == 1) != (theme == ThemeMode.DARK)) onToggleTheme()
                 },
             )
+            Spacer(Modifier.height(10.dp))
+            Text(
+                "Follows your phone until you pick a theme here.",
+                style = PaperType.small,
+                color = colors.muted,
+            )
+        }
 
-            Spacer(Modifier.height(24.dp))
-            Box(
-                Modifier
-                    .fillMaxWidth()
-                    .height(50.dp)
-                    .clip(RoundedCornerShape(25.dp))
-                    .background(colors.green)
-                    .clickable(onClick = onDismiss),
-                contentAlignment = Alignment.Center,
-            ) {
-                Text("Done", style = PaperType.button, color = colors.cream)
-            }
+        item {
+            Spacer(Modifier.height(26.dp))
+            Text(
+                "Progress is saved on this device. Updating the app keeps it.",
+                style = PaperType.small,
+                color = colors.muted,
+            )
         }
     }
 }
