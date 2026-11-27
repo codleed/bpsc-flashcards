@@ -1125,7 +1125,11 @@ private fun Segmented(
             .fillMaxWidth()
             .height(44.dp)
             .clip(RoundedCornerShape(22.dp))
-            .background(colors.paper)
+            // The track has to read as an object: `paper` is the page behind it,
+            // so a paper track vanishes. Sand + a hairline gives it an edge in
+            // both themes without inventing a colour outside this screen's set.
+            .background(colors.sand)
+            .border(1.dp, colors.muted.copy(alpha = 0.35f), RoundedCornerShape(22.dp))
             .padding(4.dp),
         horizontalArrangement = Arrangement.spacedBy(4.dp),
     ) {
@@ -1137,7 +1141,13 @@ private fun Segmented(
                     .fillMaxHeight()
                     .clip(RoundedCornerShape(18.dp))
                     .background(if (active) colors.ink else Color.Transparent)
-                    .clickable { onSelect(index) },
+                    .selectable(
+                        selected = active,
+                        role = Role.RadioButton,
+                        interactionSource = remember { MutableInteractionSource() },
+                        indication = null,
+                        onClick = { onSelect(index) },
+                    ),
                 contentAlignment = Alignment.Center,
             ) {
                 Text(
