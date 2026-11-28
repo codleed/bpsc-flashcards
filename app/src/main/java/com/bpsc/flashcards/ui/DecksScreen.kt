@@ -1214,7 +1214,7 @@ private fun ThemeBody(
                 painter = painterResource(R.drawable.floral_background),
                 contentDescription = null,
                 contentScale = ContentScale.Crop,
-                modifier = Modifier.fillMaxSize().alpha(1f),
+                modifier = Modifier.fillMaxSize().alpha(0.7f),
             )
         }
         LazyColumn(
@@ -1222,19 +1222,19 @@ private fun ThemeBody(
             contentPadding = PaddingValues(start = 24.dp, end = 24.dp, top = 28.dp, bottom = 124.dp),
         ) {
         item {
-            Text("Preferences", style = PaperType.eyebrow, color = Color.White)
+            Text("Preferences", style = PaperType.eyebrow, color = colors.ink)
             Spacer(Modifier.height(8.dp))
-            Text("Language & theme", style = PaperType.title, color = Color.White)
+            Text("Language & theme", style = PaperType.title, color = colors.ink)
         }
 
         item {
             Spacer(Modifier.height(30.dp))
-            Text("LANGUAGE", style = PaperType.micro, color = Color.White)
+            Text("LANGUAGE", style = PaperType.micro, color = colors.ink)
             Spacer(Modifier.height(8.dp))
             GlassToggle(
                 options = listOf("English", "Ø§Ø±Ø¯Ùˆ"),
                 checked = lang == AppLang.UR,
-                
+                colors = colors,
                 backdrop = themeBackdrop,
                 onCheckedChange = { on ->
                     if (on != (lang == AppLang.UR)) onToggleLang()
@@ -1244,18 +1244,18 @@ private fun ThemeBody(
             Text(
                 "Urdu changes the card text only; the app's own labels stay English.",
                 style = PaperType.small,
-                color = Color.White,
+                color = colors.ink,
             )
         }
 
         item {
             Spacer(Modifier.height(26.dp))
-            Text("APPEARANCE", style = PaperType.micro, color = Color.White)
+            Text("APPEARANCE", style = PaperType.micro, color = colors.ink)
             Spacer(Modifier.height(8.dp))
             GlassToggle(
                 options = listOf("Light", "Dark"),
                 checked = theme == ThemeMode.DARK,
-                
+                colors = colors,
                 backdrop = themeBackdrop,
                 onCheckedChange = { on ->
                     if (on != (theme == ThemeMode.DARK)) onToggleTheme()
@@ -1265,13 +1265,13 @@ private fun ThemeBody(
             Text(
                 "Follows your phone until you pick a theme here.",
                 style = PaperType.small,
-                color = Color.White,
+                color = colors.ink,
             )
         }
 
         item {
             Spacer(Modifier.height(26.dp))
-            Text("PRIVACY", style = PaperType.micro, color = Color.White)
+            Text("PRIVACY", style = PaperType.micro, color = colors.ink)
             Spacer(Modifier.height(8.dp))
             val context = LocalContext.current
             val analyticsScope = rememberCoroutineScope()
@@ -1279,7 +1279,7 @@ private fun ThemeBody(
             GlassToggle(
                 options = listOf("Off", "On"),
                 checked = shareAnonymousUsage,
-                
+                colors = colors,
                 backdrop = themeBackdrop,
                 onCheckedChange = { on ->
                     shareAnonymousUsage = on
@@ -1294,7 +1294,7 @@ private fun ThemeBody(
                     "or anything that identifies you â€” so the developer can count installs. " +
                     "Off by default; nothing is sent unless you turn this on.",
                 style = PaperType.small,
-                color = Color.White,
+                color = colors.ink,
             )
         }
 
@@ -1303,7 +1303,7 @@ private fun ThemeBody(
             Text(
                 "Progress is saved on this device. Updating the app keeps it.",
                 style = PaperType.small,
-                color = Color.White,
+                color = colors.ink,
             )
         }
         }
@@ -1327,6 +1327,7 @@ private fun ThemeBody(
 private fun GlassToggle(
     options: List<String>, // exactly two: OFF label, ON label
     checked: Boolean,
+    colors: PaperColors,
     backdrop: Backdrop,
     onCheckedChange: (Boolean) -> Unit,
 ) {
@@ -1339,6 +1340,7 @@ private fun GlassToggle(
             backdrop = backdrop,
             pressToScale = true,
         ) {
+            val darkSurface = colors.paper.luminance() < 0.5f
             options.forEachIndexed { index, label ->
                 val on = index == 1
                 val active = on == checked
@@ -1358,9 +1360,9 @@ private fun GlassToggle(
                 ) {
                     Text(
                         label,
-                        // White + bolder toggle text in both light & dark modes.
                         style = PaperType.nav.copy(fontSize = 14.sp, fontWeight = FontWeight.Bold),
-                        color = Color.White,
+                        // Toggle text is bolder; white in dark, ink in light.
+                        color = if (darkSurface) Color.White else colors.ink,
                     )
                 }
             }
