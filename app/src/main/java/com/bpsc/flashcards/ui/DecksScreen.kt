@@ -1122,13 +1122,15 @@ private fun NavTab(
     // Hold the ink for a beat in both directions: it should not turn light while
     // the white pill is still underneath, nor arrive before the pill does.
     // Dark theme: the selected tab's icon + label ink is white/whitish so it
-    // stays visible; inactive + light-theme ink are unchanged.
+    // stays visible; inactive icons stay as-is.
+    // Light theme: inactive icons use `muted` — the default `navIcon` wash is
+    // too pale to read against the paper-coloured glass pill.
     val darkSurface = colors.paper.luminance() < 0.5f
     val ink by animateColorAsState(
         targetValue = if (active) {
             if (darkSurface) Color.White else colors.navActiveInk
         } else {
-            colors.navIcon
+            if (darkSurface) colors.navIcon else colors.muted
         },
         animationSpec = tween(durationMillis = 240, delayMillis = 110),
         label = "nav-ink",
@@ -1291,7 +1293,10 @@ private fun ThemeBody(
                     "or anything that identifies you — so the developer can count installs. " +
                     "Off by default; nothing is sent unless you turn this on.",
                 style = PaperType.small,
-                color = colors.muted,
+                // This paragraph sits over the floral photo, so the muted wash
+                // loses too much contrast in light mode: use full ink there and
+                // keep the softer muted tone on dark paper.
+                color = if (colors.paper.luminance() < 0.5f) colors.muted else colors.ink,
             )
         }
 
