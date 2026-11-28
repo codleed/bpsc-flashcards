@@ -5535,6 +5535,13 @@
      "n": 342,
      "q": "Lab me kitne computers hain, kaise chalayenge?",
      "a": "Count the working machines, group students in pairs, give each group a task and a time limit, and keep a fault register."
+    },
+    {
+     "n": 343,
+     "q": "What is the difference between digitization and digitalization?",
+     "a": "Digitization means converting information into digital form (a paper file scanned into a PDF). Digitalization means using digital technology to improve a process or service (online admission, e-governance). The first changes the format; the second changes the way work is done.",
+     "q_ur": "ڈیجیٹائزیشن اور ڈیجیٹلائزیشن میں کیا فرق ہے؟",
+     "a_ur": "ڈیجیٹائزیشن: معلومات کو ڈیجیٹل شکل میں بدلنا (کاغذی فائل کا اسکین یا پی ڈی ایف)۔ ڈیجیٹلائزیشن: کام اور خدمات بہتر کرنے کے لیے ڈیجیٹل ٹیکنالوجی کا استعمال (آن لائن داخلہ، ای-گورننس)۔ پہلی فارمیٹ بدلتی ہے، دوسری طریقہ کار بدلتی ہے۔"
     }
    ]
   },

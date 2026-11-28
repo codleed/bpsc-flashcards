@@ -10,6 +10,6 @@ package com.bpsc.flashcards.data
  *   versionName  is what the user sees, e.g. "1.1".
  */
 internal object AppVersion {
-    const val CODE: Int = 15
-    const val NAME: String = "2.4"
+    const val CODE: Int = 16
+    const val NAME: String = "2.5"
 }

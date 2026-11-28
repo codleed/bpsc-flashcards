@@ -35,6 +35,8 @@ class AppPrefs(context: Context, systemDark: Boolean) {
         _lang.value = lang
     }
 
+    fun setLangNow(lang: AppLang) = setLang(lang)
+
     fun toggleLang() = setLang(if (_lang.value == AppLang.UR) AppLang.EN else AppLang.UR)
 
     fun toggleTheme() {

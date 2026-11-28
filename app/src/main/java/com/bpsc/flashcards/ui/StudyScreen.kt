@@ -288,7 +288,10 @@ private fun FlipCard(
         label = "flip",
     )
     val density = LocalDensity.current.density
-    val urdu = lang == AppLang.UR
+    // A card that only exists in English must be styled as English even when
+    // the app is in Urdu mode; otherwise the Nastaliq face has to fake Latin
+    // glyphs and the answer is right-aligned for no reason.
+    val urdu = lang == AppLang.UR && card.hasUrdu
     Box(
         Modifier
             .fillMaxSize()
@@ -321,6 +324,10 @@ private fun FlipCard(
                         color = MaterialTheme.colorScheme.onSurface,
                         textAlign = TextAlign.Center,
                     )
+                    if (lang == AppLang.UR && !card.hasUrdu) {
+                        Spacer(Modifier.height(12.dp))
+                        EnglishOnlyBadge()
+                    }
                     Spacer(Modifier.height(28.dp))
                     Text(
                         strings.tapToReveal,
@@ -349,11 +356,33 @@ private fun FlipCard(
                             color = MaterialTheme.colorScheme.onSurface,
                             textAlign = if (urdu) TextAlign.Right else TextAlign.Start,
                         )
+                        if (lang == AppLang.UR && !card.hasUrdu) {
+                            Spacer(Modifier.height(12.dp))
+                            EnglishOnlyBadge()
+                        }
                     }
                 }
             }
         }
     }
+}
+
+/**
+ * Marks a card that only exists in English. In Urdu mode the app falls back to
+ * the English text, so the user should be told rather than left wondering why
+ * one card switched languages mid-session.
+ */
+@Composable
+private fun EnglishOnlyBadge() {
+    Text(
+        "This card is only available in English",
+        style = MaterialTheme.typography.labelSmall,
+        color = MaterialTheme.colorScheme.primary,
+        modifier = Modifier
+            .clip(RoundedCornerShape(12.dp))
+            .background(MaterialTheme.colorScheme.primary.copy(alpha = 0.12f))
+            .padding(horizontal = 10.dp, vertical = 5.dp),
+    )
 }
 
 /**
