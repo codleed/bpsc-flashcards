@@ -21,10 +21,12 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.toArgb
 import androidx.compose.ui.platform.LocalView
 import androidx.core.view.WindowCompat
+import androidx.lifecycle.lifecycleScope
 import com.bpsc.flashcards.data.AppLang
 import com.bpsc.flashcards.data.AppPrefs
 import com.bpsc.flashcards.data.AppUpdater
 import com.bpsc.flashcards.data.Bank
+import com.bpsc.flashcards.data.InstallTracker
 import com.bpsc.flashcards.data.ProgressStore
 import com.bpsc.flashcards.data.ThemeMode
 import com.bpsc.flashcards.data.UpdateStatus
@@ -45,6 +47,8 @@ class MainActivity : ComponentActivity() {
         val systemDark = (resources.configuration.uiMode and Configuration.UI_MODE_NIGHT_MASK) ==
             Configuration.UI_MODE_NIGHT_YES
         val prefs = AppPrefs(applicationContext, systemDark)
+        // Anonymous, opt-in install counting; no-op unless the user enabled it.
+        lifecycleScope.launch { InstallTracker.onAppStart(applicationContext) }
         val animationsOff = Settings.Global.getFloat(
             contentResolver,
             Settings.Global.ANIMATOR_DURATION_SCALE,

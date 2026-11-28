@@ -7,7 +7,6 @@ import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
-import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
@@ -82,38 +81,19 @@ fun UpdateBanner(
             }
         }
 
-        // A determinate bar while the APK arrives, so a 13 MB download is visibly
-        // advancing rather than looking like nothing is happening.
-        if (status is UpdateStatus.Downloading) {
-            Spacer(Modifier.height(12.dp))
-            Box(
-                Modifier
-                    .fillMaxWidth()
-                    .height(4.dp)
-                    .clip(RoundedCornerShape(2.dp))
-                    .background(colors.ink.copy(alpha = 0.15f)),
-            ) {
-                Box(
-                    Modifier
-                        .fillMaxHeight()
-                        .fillMaxWidth((progress ?: 0f).coerceIn(0f, 1f))
-                        .background(colors.greenText),
-                )
-            }
-        }
-
         Spacer(Modifier.height(14.dp))
         Row(verticalAlignment = Alignment.CenterVertically) {
             // One button, three jobs. A nested clickable inside a clickable parent
             // never receives the tap, so the action has to switch here instead.
+            // UPDATE -> (download, button shows circular progress) -> INSTALL -> app update.
             val (label, action) = when (status) {
                 is UpdateStatus.Downloading ->
                     (if (progress != null && progress > 0.01f)
-                        "DOWNLOADING ${(progress * 100).toInt()}%"
+                        "${(progress * 100).toInt()}%"
                     else "CONNECTING…") to null
                 is UpdateStatus.Downloaded -> "INSTALL" to onInstall
                 is UpdateStatus.Failed -> "RETRY" to onDownload
-                else -> "DOWNLOAD" to onDownload
+                else -> "UPDATE" to onDownload
             }
             Box(
                 Modifier
@@ -126,21 +106,21 @@ fun UpdateBanner(
             ) {
                 if (status is UpdateStatus.Downloading) {
                     Row(verticalAlignment = Alignment.CenterVertically) {
-                        // Determinate once the server told us the size; until then
-                        // an indeterminate spinner, because "0% forever" reads as broken.
+                        // Circular progress bar on the button; determinate once the
+                        // server told us the size, indeterminate until then.
                         if (progress != null && progress > 0f) {
                             CircularProgressIndicator(
                                 progress = { progress },
                                 color = colors.onYellow,
                                 trackColor = colors.onYellow.copy(alpha = 0.25f),
-                                strokeWidth = 2.dp,
-                                modifier = Modifier.size(14.dp),
+                                strokeWidth = 2.5.dp,
+                                modifier = Modifier.size(24.dp),
                             )
                         } else {
                             CircularProgressIndicator(
                                 color = colors.onYellow,
-                                strokeWidth = 2.dp,
-                                modifier = Modifier.size(14.dp),
+                                strokeWidth = 2.5.dp,
+                                modifier = Modifier.size(24.dp),
                             )
                         }
                         Spacer(Modifier.width(8.dp))

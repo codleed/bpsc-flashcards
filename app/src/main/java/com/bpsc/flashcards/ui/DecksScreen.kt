@@ -67,6 +67,10 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.focus.focusRequester
+import android.content.ActivityNotFoundException
+import android.content.Intent
+import android.net.Uri
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.GraphicsLayerScope
 import androidx.compose.ui.graphics.SolidColor
@@ -86,6 +90,7 @@ import com.bpsc.flashcards.data.AppLang
 import com.bpsc.flashcards.data.CardsStatus
 import com.bpsc.flashcards.data.CardStatus
 import com.bpsc.flashcards.data.Deck
+import com.bpsc.flashcards.data.InstallTracker
 import com.bpsc.flashcards.data.MIXED_DECK_ID
 import com.kyant.backdrop.Backdrop
 import com.kyant.backdrop.backdrops.layerBackdrop
@@ -121,6 +126,55 @@ import java.util.Locale
 private enum class HomeSection { DECKS, SEARCH, THEME }
 
 private fun count(n: Int): String = NumberFormat.getIntegerInstance(Locale.US).format(n)
+
+/**
+ * WhatsApp contact button (home header, top-right).
+ *
+ * Opens a WhatsApp chat with the developer with a prefilled, still-editable
+ * draft message. Uses an explicit `whatsapp://send` intent first — that puts
+ * the text in the composer ready to edit — and falls back to the `wa.me`
+ * link (which resolves to the chat via a chooser or error) if no package
+ * handles the scheme.
+ */
+@Composable
+private fun WhatsAppButton(colors: PaperColors, modifier: Modifier = Modifier) {
+    val context = LocalContext.current
+    val message = "Hey developer, I wanted to make this feature in the app ..."
+    // East-Africa / Pakistan number, international format without "+" or zero.
+    val phone = "923128344837"
+    fun open() {
+        val schemeUri = Uri.parse("whatsapp://send?phone=$phone&text=${Uri.encode(message)}")
+        val schemeIntent = Intent(Intent.ACTION_VIEW, schemeUri).apply {
+            setPackage("com.whatsapp")
+        }
+        val httpIntent = Intent(
+            Intent.ACTION_VIEW,
+            Uri.parse("https://wa.me/$phone?text=${Uri.encode(message)}"),
+        )
+        try {
+            context.startActivity(schemeIntent)
+        } catch (_: ActivityNotFoundException) {
+            try {
+                context.startActivity(httpIntent)
+            } catch (_: ActivityNotFoundException) {
+            }
+        }
+    }
+    Box(
+        modifier
+            .size(56.dp)
+            .clip(CircleShape)
+            .clickable(onClick = { open() }),
+        contentAlignment = Alignment.Center,
+    ) {
+        Icon(
+            painter = painterResource(R.drawable.ic_whatsapp),
+            contentDescription = "Message the developer on WhatsApp",
+            tint = Color.Unspecified,
+            modifier = Modifier.size(44.dp),
+        )
+    }
+}
 
 /** "IT Teacher Interview" -> "IT Teacher\nInterview", matching the artboard's two lines. */
 private fun headline(title: String): String {
@@ -308,9 +362,15 @@ private fun HomeBody(
         contentPadding = PaddingValues(start = 24.dp, end = 24.dp, top = 28.dp, bottom = 124.dp),
     ) {
         item {
-            Text("Revision · BPSC interview", style = PaperType.eyebrow, color = colors.muted)
-            Spacer(Modifier.height(8.dp))
-            Text(headline(strings.appTitle), style = PaperType.title, color = colors.ink)
+            Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.Top) {
+                Column(Modifier.weight(1f)) {
+                    Text("Revision · BPSC interview", style = PaperType.eyebrow, color = colors.muted)
+                    Spacer(Modifier.height(8.dp))
+                    Text(headline(strings.appTitle), style = PaperType.title, color = colors.ink)
+                }
+                Spacer(Modifier.width(12.dp))
+                WhatsAppButton(colors)
+            }
         }
 
         if (showUpdate && updateRelease != null) {
@@ -1203,6 +1263,35 @@ private fun ThemeBody(
             Spacer(Modifier.height(10.dp))
             Text(
                 "Follows your phone until you pick a theme here.",
+                style = PaperType.small,
+                color = colors.muted,
+            )
+        }
+
+        item {
+            Spacer(Modifier.height(26.dp))
+            Text("PRIVACY", style = PaperType.micro, color = colors.muted)
+            Spacer(Modifier.height(8.dp))
+            val context = LocalContext.current
+            val analyticsScope = rememberCoroutineScope()
+            var shareAnonymousUsage by remember { mutableStateOf(InstallTracker.isConsented(context)) }
+            GlassToggle(
+                options = listOf("Off", "On"),
+                checked = shareAnonymousUsage,
+                colors = colors,
+                backdrop = themeBackdrop,
+                onCheckedChange = { on ->
+                    shareAnonymousUsage = on
+                    InstallTracker.setConsent(context, on)
+                    if (on) analyticsScope.launch { InstallTracker.onAppStart(context) }
+                },
+            )
+            Spacer(Modifier.height(10.dp))
+            Text(
+                "Share anonymous app usage. Sends a random per-install ID plus app " +
+                    "version and device model — never a name, account, contacts, location, " +
+                    "or anything that identifies you — so the developer can count installs. " +
+                    "Off by default; nothing is sent unless you turn this on.",
                 style = PaperType.small,
                 color = colors.muted,
             )
