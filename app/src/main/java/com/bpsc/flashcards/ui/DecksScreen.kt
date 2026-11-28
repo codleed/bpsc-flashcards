@@ -80,6 +80,7 @@ import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.platform.LocalSoftwareKeyboardController
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.semantics.Role
+import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
@@ -114,7 +115,7 @@ import java.text.NumberFormat
 import java.util.Locale
 
 /**
- * Home — the paper artboard from Home-html, built as Compose.
+ * Home â€” the paper artboard from Home-html, built as Compose.
  *
  * Faithful to that mockup's values: 24dp gutters, 28dp green hero, 24dp sand
  * cards, Fraunces display type, marigold actions, and the 232x64 ink nav pill
@@ -131,8 +132,8 @@ private fun count(n: Int): String = NumberFormat.getIntegerInstance(Locale.US).f
  * WhatsApp contact button (home header, top-right).
  *
  * Opens a WhatsApp chat with the developer with a prefilled, still-editable
- * draft message. Uses an explicit `whatsapp://send` intent first — that puts
- * the text in the composer ready to edit — and falls back to the `wa.me`
+ * draft message. Uses an explicit `whatsapp://send` intent first â€” that puts
+ * the text in the composer ready to edit â€” and falls back to the `wa.me`
  * link (which resolves to the chat via a chooser or error) if no package
  * handles the scheme.
  */
@@ -732,12 +733,12 @@ private fun PaperBar(progress: Float, track: Color, fill: Color, height: Dp) {
 private fun SyncLine(status: CardsStatus, total: Int, onRetry: () -> Unit) {
     val colors = LocalPaperColors.current
     val (text, live) = when (status) {
-        is CardsStatus.Loading -> "Checking for card updates…" to true
+        is CardsStatus.Loading -> "Checking for card updatesâ€¦" to true
         is CardsStatus.Updated ->
-            (if (status.changed) "Cards updated · ${count(total)} questions"
-            else "Cards up to date · ${count(total)} questions") to true
-        is CardsStatus.Stale -> "Offline copy · tap to retry" to false
-        CardsStatus.Idle -> "Cards up to date · ${count(total)} questions" to true
+            (if (status.changed) "Cards updated Â· ${count(total)} questions"
+            else "Cards up to date Â· ${count(total)} questions") to true
+        is CardsStatus.Stale -> "Offline copy Â· tap to retry" to false
+        CardsStatus.Idle -> "Cards up to date Â· ${count(total)} questions" to true
     }
     Row(
         Modifier
@@ -809,7 +810,7 @@ private fun SearchBody(
                 Box(Modifier.weight(1f)) {
                     if (query.isEmpty()) {
                         Text(
-                            "Search questions and answers…",
+                            "Search questions and answersâ€¦",
                             style = PaperType.search,
                             color = colors.muted,
                             maxLines = 1,
@@ -863,7 +864,7 @@ private fun SearchBody(
                 Text("No cards match", style = PaperType.featuredTitle, color = colors.ink)
                 Spacer(Modifier.height(6.dp))
                 Text(
-                    "Try a shorter word — search looks in every question and answer, in both languages.",
+                    "Try a shorter word â€” search looks in every question and answer, in both languages.",
                     style = PaperType.body,
                     color = colors.muted,
                 )
@@ -918,7 +919,7 @@ private fun SearchRow(hit: SearchHit, lang: AppLang, onClick: () -> Unit) {
         )
         Spacer(Modifier.height(4.dp))
         Text(
-            "${hit.deck.title(lang)} · Card ${hit.card.n} of ${hit.deck.cards.size}",
+            "${hit.deck.title(lang)} Â· Card ${hit.card.n} of ${hit.deck.cards.size}",
             style = PaperType.small,
             color = colors.muted,
             maxLines = 1,
@@ -939,8 +940,8 @@ private val NavInset = 8.dp
  * Liquid-glass bottom bar (Backdrop "Glass Bottom Bar").
  *
  * The bar samples the [backdrop] recorded from the content underneath and
- * redraws it through the app's own order — colour lift ⇒ lens
- * refraction — with only a light tint for readability. No flat translucent
+ * redraws it through the app's own order â€” colour lift â‡’ lens
+ * refraction â€” with only a light tint for readability. No flat translucent
  * fill, no hand-drawn sheen: the glass is the effect.
  */
 /**
@@ -966,7 +967,7 @@ private fun GlassSlidingBar(
     // Press-to-scale (Backdrop interactive glass tutorial): when enabled, a
     // press springs the glass to a slightly larger scale while `layerBlock`
     // keeps the sampled backdrop correctly positioned (it does not scale).
-    // Default off ⇒ the bottom navigation bar rendering is unchanged.
+    // Default off â‡’ the bottom navigation bar rendering is unchanged.
     pressToScale: Boolean = false,
     modifier: Modifier = Modifier,
     slots: @Composable RowScope.() -> Unit,
@@ -1025,7 +1026,7 @@ private fun GlassSlidingBar(
             .height(barHeight)
             .then(pressModifier),
     ) {
-        // Track — clear liquid glass, no tint.
+        // Track â€” clear liquid glass, no tint.
         Box(
             Modifier
                 .matchParentSize()
@@ -1123,7 +1124,7 @@ private fun NavTab(
     // the white pill is still underneath, nor arrive before the pill does.
     // Dark theme: the selected tab's icon + label ink is white/whitish so it
     // stays visible; inactive icons stay as-is.
-    // Light theme: inactive icons use `muted` — the default `navIcon` wash is
+    // Light theme: inactive icons use `muted` â€” the default `navIcon` wash is
     // too pale to read against the paper-coloured glass pill.
     val darkSurface = colors.paper.luminance() < 0.5f
     val ink by animateColorAsState(
@@ -1213,7 +1214,7 @@ private fun ThemeBody(
                 painter = painterResource(R.drawable.floral_background),
                 contentDescription = null,
                 contentScale = ContentScale.Crop,
-                modifier = Modifier.fillMaxSize().alpha(0.80f),
+                modifier = Modifier.fillMaxSize().alpha(1f),
             )
         }
         LazyColumn(
@@ -1221,19 +1222,19 @@ private fun ThemeBody(
             contentPadding = PaddingValues(start = 24.dp, end = 24.dp, top = 28.dp, bottom = 124.dp),
         ) {
         item {
-            Text("Preferences", style = PaperType.eyebrow, color = colors.muted)
+            Text("Preferences", style = PaperType.eyebrow, color = Color.White)
             Spacer(Modifier.height(8.dp))
-            Text("Language & theme", style = PaperType.title, color = colors.ink)
+            Text("Language & theme", style = PaperType.title, color = Color.White)
         }
 
         item {
             Spacer(Modifier.height(30.dp))
-            Text("LANGUAGE", style = PaperType.micro, color = colors.muted)
+            Text("LANGUAGE", style = PaperType.micro, color = Color.White)
             Spacer(Modifier.height(8.dp))
             GlassToggle(
-                options = listOf("English", "اردو"),
+                options = listOf("English", "Ø§Ø±Ø¯Ùˆ"),
                 checked = lang == AppLang.UR,
-                colors = colors,
+                
                 backdrop = themeBackdrop,
                 onCheckedChange = { on ->
                     if (on != (lang == AppLang.UR)) onToggleLang()
@@ -1243,18 +1244,18 @@ private fun ThemeBody(
             Text(
                 "Urdu changes the card text only; the app's own labels stay English.",
                 style = PaperType.small,
-                color = colors.muted,
+                color = Color.White,
             )
         }
 
         item {
             Spacer(Modifier.height(26.dp))
-            Text("APPEARANCE", style = PaperType.micro, color = colors.muted)
+            Text("APPEARANCE", style = PaperType.micro, color = Color.White)
             Spacer(Modifier.height(8.dp))
             GlassToggle(
                 options = listOf("Light", "Dark"),
                 checked = theme == ThemeMode.DARK,
-                colors = colors,
+                
                 backdrop = themeBackdrop,
                 onCheckedChange = { on ->
                     if (on != (theme == ThemeMode.DARK)) onToggleTheme()
@@ -1264,13 +1265,13 @@ private fun ThemeBody(
             Text(
                 "Follows your phone until you pick a theme here.",
                 style = PaperType.small,
-                color = colors.muted,
+                color = Color.White,
             )
         }
 
         item {
             Spacer(Modifier.height(26.dp))
-            Text("PRIVACY", style = PaperType.micro, color = colors.muted)
+            Text("PRIVACY", style = PaperType.micro, color = Color.White)
             Spacer(Modifier.height(8.dp))
             val context = LocalContext.current
             val analyticsScope = rememberCoroutineScope()
@@ -1278,7 +1279,7 @@ private fun ThemeBody(
             GlassToggle(
                 options = listOf("Off", "On"),
                 checked = shareAnonymousUsage,
-                colors = colors,
+                
                 backdrop = themeBackdrop,
                 onCheckedChange = { on ->
                     shareAnonymousUsage = on
@@ -1289,14 +1290,11 @@ private fun ThemeBody(
             Spacer(Modifier.height(10.dp))
             Text(
                 "Share anonymous app usage. Sends a random per-install ID plus app " +
-                    "version and device model — never a name, account, contacts, location, " +
-                    "or anything that identifies you — so the developer can count installs. " +
+                    "version and device model â€” never a name, account, contacts, location, " +
+                    "or anything that identifies you â€” so the developer can count installs. " +
                     "Off by default; nothing is sent unless you turn this on.",
                 style = PaperType.small,
-                // This paragraph sits over the floral photo, so the muted wash
-                // loses too much contrast in light mode: use full ink there and
-                // keep the softer muted tone on dark paper.
-                color = if (colors.paper.luminance() < 0.5f) colors.muted else colors.ink,
+                color = Color.White,
             )
         }
 
@@ -1305,7 +1303,7 @@ private fun ThemeBody(
             Text(
                 "Progress is saved on this device. Updating the app keeps it.",
                 style = PaperType.small,
-                color = colors.muted,
+                color = Color.White,
             )
         }
         }
@@ -1314,8 +1312,8 @@ private fun ThemeBody(
 
 /**
  * Liquid-glass ON/OFF switch rebuilt on the SAME [GlassSlidingBar] Liquid
- * Glass component as the bottom navigation bar — identical `drawBackdrop`
- * rendering (`vibrancy` ⇒ `lens`, `Highlight`, `Shadow`, clear no-tint glass),
+ * Glass component as the bottom navigation bar â€” identical `drawBackdrop`
+ * rendering (`vibrancy` â‡’ `lens`, `Highlight`, `Shadow`, clear no-tint glass),
  * identical slide spring (dampingRatio 0.9 / StiffnessMediumLow) and ink
  * animation, plus the tutorial's press-to-scale interaction ([Animatable] +
  * spring + `awaitEachGesture` + `layerBlock`, `pressToScale = true`).
@@ -1323,13 +1321,12 @@ private fun ThemeBody(
  * Two slots keep the current labels; `checked` is ON. Semantics are
  * [Role.Switch] toggleables (not radio), tapping flips state, layout,
  * captions and behaviour are unchanged. Samples a real `rememberLayerBackdrop`
- * of what is behind it — never a backdrop it is recorded into.
+ * of what is behind it â€” never a backdrop it is recorded into.
  */
 @Composable
 private fun GlassToggle(
     options: List<String>, // exactly two: OFF label, ON label
     checked: Boolean,
-    colors: PaperColors,
     backdrop: Backdrop,
     onCheckedChange: (Boolean) -> Unit,
 ) {
@@ -1345,12 +1342,6 @@ private fun GlassToggle(
             options.forEachIndexed { index, label ->
                 val on = index == 1
                 val active = on == checked
-                // Same ink animation as GlassBottomBar's NavTab.
-                val ink by animateColorAsState(
-                    targetValue = if (active) colors.navActiveInk else colors.navIcon,
-                    animationSpec = tween(durationMillis = 240, delayMillis = 110),
-                    label = "toggle-ink",
-                )
                 Box(
                     Modifier
                         .weight(1f)
@@ -1367,8 +1358,9 @@ private fun GlassToggle(
                 ) {
                     Text(
                         label,
-                        style = PaperType.nav.copy(fontSize = 14.sp),
-                        color = ink,
+                        // White + bolder toggle text in both light & dark modes.
+                        style = PaperType.nav.copy(fontSize = 14.sp, fontWeight = FontWeight.Bold),
+                        color = Color.White,
                     )
                 }
             }
