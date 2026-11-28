@@ -364,8 +364,6 @@ private fun HomeBody(
         item {
             Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.Top) {
                 Column(Modifier.weight(1f)) {
-                    Text("Revision · BPSC interview", style = PaperType.eyebrow, color = colors.muted)
-                    Spacer(Modifier.height(8.dp))
                     Text(headline(strings.appTitle), style = PaperType.title, color = colors.ink)
                 }
                 Spacer(Modifier.width(12.dp))
