@@ -1,0 +1,11 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  Debug-only overlay. Lets `node tools/mock-update.mjs` serve the fake update
+  manifest over plain HTTP so the update flow can be tested without publishing a
+  release. Cleartext is DISABLED in the release build (default for API 28+), so
+  this never applies to the APK users download.
+-->
+<manifest xmlns:android="http://schemas.android.com/apk/res/android">
+
+    <application android:usesCleartextTraffic="true" />
+</manifest>

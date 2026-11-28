@@ -4,6 +4,7 @@ import androidx.compose.animation.core.FastOutSlowInEasing
 import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.core.snap
 import androidx.compose.animation.core.tween
+import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
@@ -18,6 +19,8 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
@@ -33,41 +36,63 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.shadow
+import androidx.compose.ui.graphics.drawscope.ContentDrawScope
 import androidx.compose.ui.graphics.graphicsLayer
+import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import com.bpsc.flashcards.R
+import com.bpsc.flashcards.data.AppLang
 import com.bpsc.flashcards.data.Card
 import com.bpsc.flashcards.data.CardStatus
 import com.bpsc.flashcards.data.Deck
 import com.bpsc.flashcards.ui.theme.InkType
 import com.bpsc.flashcards.ui.theme.warmAccent
+import com.kyant.backdrop.Backdrop
+import com.kyant.backdrop.backdrops.layerBackdrop
+import com.kyant.backdrop.backdrops.rememberLayerBackdrop
+import com.kyant.backdrop.drawBackdrop
+import com.kyant.backdrop.effects.blur
+import com.kyant.backdrop.effects.lens
+import com.kyant.backdrop.effects.vibrancy
 import kotlin.random.Random
 
 @Composable
 fun StudyScreen(
     deck: Deck,
     states: Map<String, CardStatus>,
+    lang: AppLang,
     reduceMotion: Boolean,
     onMark: (String, CardStatus) -> Unit,
     onResetDeck: () -> Unit,
     onExit: () -> Unit,
+    startCardId: String? = null,
 ) {
+    val strings = LocalAppStrings.current
     var session by remember(deck.id) { mutableIntStateOf(0) }
     var round by remember(deck.id, session) { mutableIntStateOf(1) }
     var seed by remember(deck.id, session, round) { mutableStateOf(0L) }
-    val queue: List<Card> = remember(deck.id, session, round, seed) {
-        buildQueue(deck, states, onlyAgain = round > 1, rnd = Random(if (seed == 0L) System.nanoTime() else seed))
+    // Opened from search: browse the deck in order, starting at the matched card.
+    val browse = startCardId != null && session == 0
+    val queue: List<Card> = remember(deck.id, session, round, seed, startCardId) {
+        if (browse) deck.cards
+        else buildQueue(deck, states, onlyAgain = round > 1, rnd = Random(if (seed == 0L) System.nanoTime() else seed))
     }
-    var index by remember(deck.id, session, round, seed) { mutableIntStateOf(0) }
+    var index by remember(deck.id, session, round, seed, startCardId) {
+        mutableIntStateOf(
+            if (browse) deck.cards.indexOfFirst { it.id == startCardId }.coerceAtLeast(0) else 0,
+        )
+    }
     var flipped by remember(deck.id, session, round, seed) { mutableStateOf(false) }
     var pending by remember(deck.id, session, round, seed) { mutableStateOf<CardStatus?>(null) }
 
@@ -88,7 +113,30 @@ fun StudyScreen(
     val againInDeck = deck.cards.count { states[it.id] == CardStatus.AGAIN }
 
     Scaffold(containerColor = MaterialTheme.colorScheme.background) { insets ->
-        Column(Modifier.fillMaxSize().padding(insets)) {
+        // Liquid-glass flashcard (Backdrop "Glass Bottom Sheet"): record the
+        // page - background drawn first, then content - into a backdrop the
+        // card samples. The stable lambda keeps coordinates across recomposes.
+        val backgroundColor = rememberUpdatedState(MaterialTheme.colorScheme.background)
+        val backdropDraw: ContentDrawScope.() -> Unit = remember {
+            {
+                drawRect(backgroundColor.value)
+                drawContent()
+            }
+        }
+        val backdrop = rememberLayerBackdrop(onDraw = backdropDraw)
+        Box(Modifier.fillMaxSize().padding(insets)) {
+            // Recorded page layer; the glass card is NOT part of it (no glass-on-glass loop).
+            // A faint floral backdrop (Pexels, free) gives the liquid glass
+            // real colour + detail to refract, and is recorded into `backdrop`.
+            Box(Modifier.fillMaxSize().layerBackdrop(backdrop)) {
+                Image(
+                    painter = painterResource(R.drawable.floral_background),
+                    contentDescription = null,
+                    contentScale = ContentScale.Crop,
+                    modifier = Modifier.fillMaxSize().alpha(0.18f),
+                )
+            }
+            Column(Modifier.fillMaxSize()) {
             Row(
                 modifier = Modifier.fillMaxWidth().padding(start = 4.dp, end = 20.dp, top = 4.dp),
                 verticalAlignment = Alignment.CenterVertically,
@@ -96,7 +144,7 @@ fun StudyScreen(
                 IconButton(onClick = onExit) {
                     Icon(
                         painter = painterResource(R.drawable.ic_arrow_back),
-                        contentDescription = "Back to decks",
+                        contentDescription = strings.backToDecks,
                         tint = MaterialTheme.colorScheme.onBackground,
                     )
                 }
@@ -110,9 +158,15 @@ fun StudyScreen(
                 )
                 if (!sessionDone) {
                     Text(
-                        "${index + 1} / ${queue.size}",
+                        strings.counter(index + 1, queue.size),
                         style = InkType.counter,
                         color = MaterialTheme.colorScheme.onSurface,
+                    )
+                } else if (browse) {
+                    Text(
+                        strings.cardBrowse,
+                        style = InkType.eyebrow,
+                        color = MaterialTheme.colorScheme.outline,
                     )
                 }
             }
@@ -138,13 +192,17 @@ fun StudyScreen(
             if (sessionDone) {
                 SessionSummary(
                     deck = deck,
+                    lang = lang,
                     known = knownInDeck,
                     again = againInDeck,
+                    browse = browse,
+                    strings = strings,
                     onRevisit = { round++ },
                     onResetAndPractice = {
                         onResetDeck()
                         session++
                     },
+                    onStartPractice = { session++ },
                     onExit = onExit,
                 )
             } else {
@@ -156,14 +214,35 @@ fun StudyScreen(
                 ) {
                     FlipCard(
                         card = queue[index],
-                        deckTag = deck.tag,
+                        lang = lang,
+                        deckTag = deck.tag(lang),
                         flipped = flipped,
                         reduceMotion = reduceMotion,
+                        strings = strings,
+                        backdrop = backdrop,
                         onFlip = { flipped = !flipped },
                     )
                 }
+                NavRow(
+                    index = index,
+                    total = queue.size,
+                    strings = strings,
+                    onPrev = {
+                        if (index > 0) {
+                            index--
+                            flipped = false
+                        }
+                    },
+                    onNext = {
+                        if (index < queue.size - 1) {
+                            index++
+                            flipped = false
+                        }
+                    },
+                )
                 ActionBar(
                     flipped = flipped,
+                    strings = strings,
                     onAgain = {
                         pending = CardStatus.AGAIN
                         flipped = false
@@ -173,6 +252,7 @@ fun StudyScreen(
                         flipped = false
                     },
                 )
+            }
             }
         }
     }
@@ -194,9 +274,12 @@ private fun buildQueue(
 @Composable
 private fun FlipCard(
     card: Card,
+    lang: AppLang,
     deckTag: String,
     flipped: Boolean,
     reduceMotion: Boolean,
+    strings: AppStrings,
+    backdrop: Backdrop,
     onFlip: () -> Unit,
 ) {
     val rotation by animateFloatAsState(
@@ -205,6 +288,7 @@ private fun FlipCard(
         label = "flip",
     )
     val density = LocalDensity.current.density
+    val urdu = lang == AppLang.UR
     Box(
         Modifier
             .fillMaxSize()
@@ -219,27 +303,27 @@ private fun FlipCard(
             ),
     ) {
         if (rotation <= 90f) {
-            CardFace {
+            CardFace(backdrop) {
                 Column(
                     Modifier.fillMaxSize().padding(28.dp),
                     horizontalAlignment = Alignment.CenterHorizontally,
                     verticalArrangement = Arrangement.Center,
                 ) {
                     Text(
-                        "QUESTION",
+                        strings.question,
                         style = InkType.eyebrow,
                         color = MaterialTheme.colorScheme.outline,
                     )
                     Spacer(Modifier.height(16.dp))
                     Text(
-                        card.q,
-                        style = InkType.question,
+                        card.q(lang),
+                        style = if (urdu) InkType.questionUrdu else InkType.question,
                         color = MaterialTheme.colorScheme.onSurface,
                         textAlign = TextAlign.Center,
                     )
                     Spacer(Modifier.height(28.dp))
                     Text(
-                        "TAP TO REVEAL",
+                        strings.tapToReveal,
                         style = InkType.eyebrow,
                         color = MaterialTheme.colorScheme.outline,
                     )
@@ -247,22 +331,23 @@ private fun FlipCard(
             }
         } else {
             Box(Modifier.fillMaxSize().graphicsLayer { rotationY = 180f }) {
-                CardFace {
+                CardFace(backdrop) {
                     Column(
                         Modifier.fillMaxSize().padding(28.dp),
                         horizontalAlignment = Alignment.CenterHorizontally,
                         verticalArrangement = Arrangement.Center,
                     ) {
                         Text(
-                            "ANSWER · $deckTag",
+                            strings.answer(deckTag),
                             style = InkType.eyebrow,
                             color = MaterialTheme.colorScheme.primary,
                         )
                         Spacer(Modifier.height(16.dp))
                         Text(
-                            card.a,
-                            style = InkType.answer,
+                            card.a(lang),
+                            style = if (urdu) InkType.answerUrdu else InkType.answer,
                             color = MaterialTheme.colorScheme.onSurface,
+                            textAlign = if (urdu) TextAlign.Right else TextAlign.Start,
                         )
                     }
                 }
@@ -271,15 +356,33 @@ private fun FlipCard(
     }
 }
 
+/**
+ * Liquid-glass flashcard (Backdrop "Glass Bottom Sheet").
+ *
+ * Samples the page [backdrop], colour-lifts it, then bends it through the
+ * card's rounded edge; only a light wash of the card surface on top. The
+ * flat fill, border and drop shadow are replaced by the glass itself.
+ */
 @Composable
-private fun CardFace(content: @Composable () -> Unit) {
+private fun CardFace(backdrop: Backdrop, content: @Composable () -> Unit) {
+    val shape = MaterialTheme.shapes.medium
+    val surfaceColor = MaterialTheme.colorScheme.surface
     Box(
         Modifier
             .fillMaxSize()
-            .shadow(6.dp, MaterialTheme.shapes.medium)
-            .clip(MaterialTheme.shapes.medium)
-            .background(MaterialTheme.colorScheme.surface)
-            .border(1.dp, MaterialTheme.colorScheme.outlineVariant, MaterialTheme.shapes.medium),
+            .drawBackdrop(
+                backdrop = backdrop,
+                shape = { shape },
+                effects = {
+                    vibrancy()
+                    lens(
+                        refractionHeight = 24.dp.toPx(),
+                        refractionAmount = 48.dp.toPx(),
+                        depthEffect = true,
+                    )
+                },
+                // no onDrawSurface: clear glass, no tint
+            ),
     ) {
         content()
     }
@@ -288,6 +391,7 @@ private fun CardFace(content: @Composable () -> Unit) {
 @Composable
 private fun ActionBar(
     flipped: Boolean,
+    strings: AppStrings,
     onAgain: () -> Unit,
     onGotIt: () -> Unit,
 ) {
@@ -302,7 +406,7 @@ private fun ActionBar(
                 colors = ButtonDefaults.outlinedButtonColors(contentColor = warmAccent()),
                 modifier = Modifier.weight(1f).height(52.dp),
             ) {
-                Text("AGAIN", style = InkType.eyebrow)
+                Text(strings.again, style = InkType.eyebrow)
             }
             Button(
                 onClick = onGotIt,
@@ -313,7 +417,7 @@ private fun ActionBar(
                 ),
                 modifier = Modifier.weight(1f).height(52.dp),
             ) {
-                Text("GOT IT", style = InkType.eyebrow)
+                Text(strings.gotIt, style = InkType.eyebrow)
             }
         }
     } else {
@@ -322,7 +426,7 @@ private fun ActionBar(
             contentAlignment = Alignment.Center,
         ) {
             Text(
-                "Tap the card to reveal the answer",
+                strings.tapHint,
                 style = InkType.eyebrow,
                 color = MaterialTheme.colorScheme.outline,
             )
@@ -331,14 +435,99 @@ private fun ActionBar(
 }
 
 @Composable
+private fun NavRow(
+    index: Int,
+    total: Int,
+    strings: AppStrings,
+    onPrev: () -> Unit,
+    onNext: () -> Unit,
+) {
+    Row(
+        Modifier.fillMaxWidth().padding(horizontal = 20.dp, vertical = 4.dp),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        NavButton(
+            label = strings.prev,
+            icon = R.drawable.ic_chevron_left,
+            enabled = index > 0,
+            onClick = onPrev,
+        )
+        Text(
+            strings.counter(index + 1, total),
+            style = InkType.counter,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+            modifier = Modifier.weight(1f),
+            textAlign = TextAlign.Center,
+        )
+        NavButton(
+            label = strings.next,
+            icon = R.drawable.ic_chevron_right,
+            enabled = index < total - 1,
+            onClick = onNext,
+        )
+    }
+}
+
+@Composable
+private fun NavButton(label: String, icon: Int, enabled: Boolean, onClick: () -> Unit) {
+    val scheme = MaterialTheme.colorScheme
+    val color = if (enabled) scheme.onSurfaceVariant else scheme.outlineVariant
+    Row(
+        Modifier
+            .clip(RoundedCornerShape(8.dp))
+            .then(if (enabled) Modifier.clickable(onClick = onClick) else Modifier)
+            .padding(horizontal = 10.dp, vertical = 10.dp),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        Icon(
+            painter = painterResource(icon),
+            contentDescription = null,
+            tint = color,
+            modifier = Modifier.size(15.dp),
+        )
+        Spacer(Modifier.width(4.dp))
+        Text(label, style = InkType.eyebrow, color = color)
+    }
+}
+
+@Composable
 private fun SessionSummary(
     deck: Deck,
+    lang: AppLang,
     known: Int,
     again: Int,
+    browse: Boolean,
+    strings: AppStrings,
     onRevisit: () -> Unit,
     onResetAndPractice: () -> Unit,
+    onStartPractice: () -> Unit,
     onExit: () -> Unit,
 ) {
+    if (browse) {
+        Column(
+            Modifier.fillMaxSize().padding(horizontal = 28.dp, vertical = 32.dp),
+            verticalArrangement = Arrangement.Center,
+            horizontalAlignment = Alignment.CenterHorizontally,
+        ) {
+            Text(
+                strings.endOfDeckTitle,
+                style = InkType.eyebrow,
+                color = MaterialTheme.colorScheme.outline,
+            )
+            Spacer(Modifier.height(12.dp))
+            Text(
+                strings.endOfDeckBody,
+                style = InkType.body,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                textAlign = TextAlign.Center,
+            )
+            Spacer(Modifier.height(28.dp))
+            PrimaryButton(strings.startPractice, onStartPractice)
+            Spacer(Modifier.height(12.dp))
+            SecondaryButton(strings.backToDecksAction, onExit)
+        }
+        return
+    }
     val complete = again == 0
     Column(
         Modifier.fillMaxSize().padding(horizontal = 28.dp, vertical = 32.dp),
@@ -346,39 +535,39 @@ private fun SessionSummary(
         horizontalAlignment = Alignment.CenterHorizontally,
     ) {
         Text(
-            if (complete) "SESSION COMPLETE" else "ROUND COMPLETE",
+            if (complete) strings.sessionComplete else strings.roundComplete,
             style = InkType.eyebrow,
             color = MaterialTheme.colorScheme.outline,
         )
         Spacer(Modifier.height(12.dp))
         Text(
-            if (complete) "All ${deck.cards.size} cards marked known"
-            else "$again cards to revisit",
+            if (complete) strings.allKnown(deck.cards.size)
+            else strings.revisitTitle(again),
             style = InkType.appTitle,
             color = MaterialTheme.colorScheme.onSurface,
             textAlign = TextAlign.Center,
         )
         Spacer(Modifier.height(12.dp))
         Text(
-            if (complete) "${deck.title} is mastered. Come back in a few days to keep it fresh."
-            else "Review the ones that tripped you up, then finish the deck.",
+            if (complete) strings.deckMastered(deck.title(lang))
+            else strings.reviewAgainBody(deck.title(lang)),
             style = InkType.body,
             color = MaterialTheme.colorScheme.onSurfaceVariant,
             textAlign = TextAlign.Center,
         )
         Spacer(Modifier.height(28.dp))
         if (complete) {
-            PrimaryButton("BACK TO DECKS", onExit)
+            PrimaryButton(strings.backToDecksAction, onExit)
             Spacer(Modifier.height(12.dp))
-            SecondaryButton("RESET DECK & PRACTICE AGAIN", onResetAndPractice)
+            SecondaryButton(strings.resetAndPractice, onResetAndPractice)
         } else {
-            PrimaryButton("REVISIT $again CARDS", onRevisit)
+            PrimaryButton(strings.revisitAgain(again), onRevisit)
             Spacer(Modifier.height(12.dp))
-            SecondaryButton("BACK TO DECKS", onExit)
+            SecondaryButton(strings.backToDecksAction, onExit)
         }
         Spacer(Modifier.height(12.dp))
         Text(
-            "$known of ${deck.cards.size} known in this deck",
+            strings.knownInDeck(known, deck.cards.size),
             style = InkType.eyebrow,
             color = MaterialTheme.colorScheme.outline,
         )
