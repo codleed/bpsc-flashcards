@@ -1213,7 +1213,7 @@ private fun ThemeBody(
                 painter = painterResource(R.drawable.floral_background),
                 contentDescription = null,
                 contentScale = ContentScale.Crop,
-                modifier = Modifier.fillMaxSize().alpha(0.40f),
+                modifier = Modifier.fillMaxSize().alpha(0.80f),
             )
         }
         LazyColumn(
